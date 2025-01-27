@@ -3,7 +3,129 @@ import numpy as np
 from scipy import linalg as ls 
 import networkx as nx 
 from functools import reduce
+from tqdm import tqdm
 
+#########################################################################
+
+#Complete graph Hamiltonian
+def H_CG(N,gamma,w,kappa):
+    #Hamiltonian matrix
+    ket_s = (1.0/np.sqrt(N))*np.ones((N,1))
+    H = -gamma*N*np.dot(ket_s,np.conjugate(ket_s).transpose())
+        
+    # Ensure H can handle complex numbers
+    H = H.astype(complex)
+
+    H[w,w] = H[w,w] - 1 - 1j*kappa
+    
+    return H   
+
+#########################################################################
+
+#calculating the overlap numerically
+def overlap_CG_numerics(N,gamma,w,kappa):
+
+    overlap_right0 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_left0 = np.zeros(len(gamma),dtype=np.complex_)
+
+    overlap_right1 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_left1 = np.zeros(len(gamma),dtype=np.complex_)
+
+    overlap_right2 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_left2 = np.zeros(len(gamma),dtype=np.complex_)
+
+    overlap_right3 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_left3 = np.zeros(len(gamma),dtype=np.complex_)
+
+    #calculate the overlap
+    psi_0 = (1.0/np.sqrt(N))*np.ones((N,1))
+
+    #target state
+    ket_w = np.zeros((N,1))
+    ket_w[w] = 1
+
+    for i in tqdm(range(len(gamma))):
+        
+        #Hamiltonian matrix
+        H = H_CG(N,gamma[i],w,kappa)
+        
+        #get the eigenvalue and right eigenstates
+        eigval_right,eigvec_right = np.linalg.eig(H)
+
+        # Sort the eigenvalues and eigenvectors
+        sorted_indices = np.argsort(np.real(eigval_right))  # Get indices for sorting eigenvalues
+        eigval_right_sorted = eigval_right[sorted_indices]  # Sort eigenvalues
+        eigvec_right_sorted = eigvec_right[:,sorted_indices]  # Reorder eigenvectors accordingly    
+
+        #get the eigenvalue and left eigenstates
+        eigval_left,eigvec_left = np.linalg.eig(np.transpose(H))
+
+        #Sort the eigenvalues and eigenvectors
+        sorted_indices = np.argsort(np.real(eigval_left))  # Get indices for sorting eigenvalues
+        eigval_left_sorted = eigval_left[sorted_indices]  # Sort eigenvalues
+        eigvec_left_sorted = eigvec_left[:, sorted_indices]  # Reorder eigenvectors accordingly       
+
+        overlap_right0[i] = np.vdot(psi_0,eigvec_right_sorted[:,0])
+        overlap_left0[i] = np.vdot(eigvec_left_sorted[:,0],psi_0)
+
+        overlap_right1[i] = np.vdot(psi_0,eigvec_right_sorted[:,1])
+        overlap_left1[i] = np.vdot(eigvec_left_sorted[:,1],psi_0)
+
+        overlap_right2[i] = np.vdot(ket_w,eigvec_right_sorted[:,0])
+        overlap_left2[i] = np.vdot(eigvec_left_sorted[:,0],ket_w)
+
+        overlap_right3[i] = np.vdot(ket_w,eigvec_right_sorted[:,1])
+        overlap_left3[i] = np.vdot(eigvec_left_sorted[:,1],ket_w)  
+
+
+    return np.abs(np.multiply(overlap_left0,overlap_right0)), np.abs(np.multiply(overlap_left1,overlap_right1)), np.abs(np.multiply(overlap_left2,overlap_right2)), np.abs(np.multiply(overlap_left3,overlap_right3))
+
+#########################################################################
+
+#theoretical eigenvalues in the two dimensional basis
+def lambda_pm(N,gamma,kappa):
+
+    lambda_plus  = -(gamma*N + 1 + 1.0j*kappa)/2  + np.sqrt(((gamma*N + 1 + 1.0j*kappa)/2)**2 - (gamma*N - gamma)*(1 + 1.0j*kappa))
+    lambda_minus = -(gamma*N + 1 + 1.0j*kappa)/2  - np.sqrt(((gamma*N + 1 + 1.0j*kappa)/2)**2 - (gamma*N - gamma)*(1 + 1.0j*kappa))
+
+    return lambda_plus,lambda_minus
+
+#theoretical eigenvectors in the two dimensional basis
+def ket_lambda(N,gamma,kappa):
+
+    lambda_plus,lambda_minus = lambda_pm(N,gamma,kappa)
+
+    a_plus = (- lambda_plus - gamma*(N -1))/(gamma*np.sqrt(N-1))
+    b_plus = 1
+    N_plus = 1/np.sqrt(a_plus**2 + 1)
+    ket_lambda_plus = N_plus*np.array([a_plus,b_plus])
+
+    a_minus = (- lambda_minus - gamma*(N -1))/(gamma*np.sqrt(N-1))
+    b_minus = 1
+    N_minus = 1/np.sqrt(a_minus**2 + 1)
+    ket_lambda_minus = N_minus*np.array([a_minus,b_minus])
+
+    return ket_lambda_plus, ket_lambda_minus
+
+#theoretical calculation of overlaps in the two dimensional basis
+def overlap_CG_theory(N,gamma,w,kappa):
+
+    ket_s = np.array([1.0/np.sqrt(N) ,np.sqrt((N-1)/N)])
+    ket_w = np.array([1,0])
+
+    overlap_0 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_1 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_2 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_3 = np.zeros(len(gamma),dtype=np.complex_)
+
+    for i in tqdm(range(len(gamma))):
+        ket_lambda_plus, ket_lambda_minus = ket_lambda(N,gamma[i],kappa)
+        overlap_0[i] = np.abs(np.vdot(ket_lambda_minus,ket_s)*np.vdot(ket_s, ket_lambda_minus))
+        overlap_1[i] = np.abs(np.vdot(ket_lambda_plus,ket_s)*np.vdot(ket_s, ket_lambda_plus))
+        overlap_2[i] = np.abs(np.vdot(ket_lambda_minus,ket_w)*np.vdot(ket_w, ket_lambda_minus))
+        overlap_3[i] = np.abs(np.vdot(ket_lambda_plus,ket_w)*np.vdot(ket_w, ket_lambda_plus))
+               
+    return overlap_0,overlap_1,overlap_2,overlap_3
 
 #########################################################################
 
@@ -74,7 +196,7 @@ def hypercube_hamiltonian(dim,gamma, w, kappa):
 
 #########################################################################
 
-def overlap_hypercube(dim,w, kappa,gamma):
+def overlap_hypercube(dim,gamma, w, kappa):
     
     overlap_0 = np.zeros(len(gamma),dtype=np.complex_)
     overlap_1 = np.zeros(len(gamma),dtype=np.complex_)
@@ -95,7 +217,10 @@ def overlap_hypercube(dim,w, kappa,gamma):
         H = hypercube_hamiltonian_networkx(dim,gamma[i], w, kappa)
         
         #get the eigenvalue and right eigenstates
-        eigval,eigvec = np.linalg.eig(H)
+        eigval_r,eigvec_r = np.linalg.eig(H)
+
+        #get the eigenvalue and right eigenstates
+        eigval_l,eigvec_l = np.linalg.eig(H.transpose)        
 
         # Sort the eigenvalues and eigenvectors
         sorted_indices = np.argsort(eigval)  # Get indices for sorting eigenvalues
@@ -106,9 +231,7 @@ def overlap_hypercube(dim,w, kappa,gamma):
         overlap_1[i] = np.abs(np.vdot(psi_0,eigvec_sorted[:,1]))**2  
         overlap_2[i] = np.abs(np.vdot(ket_w,eigvec_sorted[:,0]))**2 
         overlap_3[i] = np.abs(np.vdot(ket_w,eigvec_sorted[:,1]))**2
-
-
+    
     return overlap_0,overlap_1,overlap_2,overlap_3
-
 
 
