@@ -73,3 +73,42 @@ def hypercube_hamiltonian(dim,gamma, w, kappa):
     return H
 
 #########################################################################
+
+def overlap_hypercube(dim,w, kappa,gamma):
+    
+    overlap_0 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_1 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_2 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_3 = np.zeros(len(gamma),dtype=np.complex_)
+   
+    #Initial state
+    psi_0 = (1.0/np.sqrt(2**dim))*np.ones((2**dim,1))
+
+    #target state
+    ket_w = np.zeros((2**dim,1))
+    ket_w[w] = 1
+
+    #computing overlap
+    for i in tqdm(range(len(gamma))):
+        
+        #Hamiltonian matrix
+        H = hypercube_hamiltonian_networkx(dim,gamma[i], w, kappa)
+        
+        #get the eigenvalue and right eigenstates
+        eigval,eigvec = np.linalg.eig(H)
+
+        # Sort the eigenvalues and eigenvectors
+        sorted_indices = np.argsort(eigval)  # Get indices for sorting eigenvalues
+        eigval_sorted = eigval[sorted_indices]  # Sort eigenvalues
+        eigvec_sorted = eigvec[:, sorted_indices]  # Reorder eigenvectors accordingly
+
+        overlap_0[i] = np.abs(np.vdot(psi_0,eigvec_sorted[:,0]))**2   
+        overlap_1[i] = np.abs(np.vdot(psi_0,eigvec_sorted[:,1]))**2  
+        overlap_2[i] = np.abs(np.vdot(ket_w,eigvec_sorted[:,0]))**2 
+        overlap_3[i] = np.abs(np.vdot(ket_w,eigvec_sorted[:,1]))**2
+
+
+    return overlap_0,overlap_1,overlap_2,overlap_3
+
+
+
