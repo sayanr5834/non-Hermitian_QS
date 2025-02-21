@@ -107,6 +107,7 @@ def ket_lambda(N,gamma,kappa):
 
     return ket_lambda_plus, ket_lambda_minus
 
+
 #theoretical calculation of overlaps in the two dimensional basis
 def overlap_CG_theory(N,gamma,w,kappa):
 
@@ -118,7 +119,7 @@ def overlap_CG_theory(N,gamma,w,kappa):
     overlap_2 = np.zeros(len(gamma),dtype=np.complex_)
     overlap_3 = np.zeros(len(gamma),dtype=np.complex_)
 
-    for i in tqdm(range(len(gamma))):
+    for i in range(len(gamma)):
         ket_lambda_plus, ket_lambda_minus = ket_lambda(N,gamma[i],kappa)
         overlap_0[i] = np.abs(np.vdot(ket_lambda_minus,ket_s)*np.vdot(ket_s, ket_lambda_minus))
         overlap_1[i] = np.abs(np.vdot(ket_lambda_plus,ket_s)*np.vdot(ket_s, ket_lambda_plus))
@@ -128,6 +129,31 @@ def overlap_CG_theory(N,gamma,w,kappa):
     return overlap_0,overlap_1,overlap_2,overlap_3
 
 #########################################################################
+#theoretical calculation of survival probability in the two dimensional basis
+def overlap_CG_theory_surv(N,gamma,w,kappa):
+
+    ket_s = np.array([1.0/np.sqrt(N) ,np.sqrt((N-1)/N)])
+    ket_w = np.array([1,0])
+
+    overlap_0 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_1 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_2 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_3 = np.zeros(len(gamma),dtype=np.complex_)
+
+    for i in tqdm(range(len(gamma))):
+        ket_lambda_plus, ket_lambda_minus = ket_lambda(N,gamma[i],kappa)
+        overlap_0[i] = np.vdot(ket_lambda_minus,ket_s)
+        overlap_1[i] = np.vdot(ket_lambda_plus,ket_s)
+        overlap_2[i] = np.vdot(ket_lambda_minus,ket_w)
+        overlap_3[i] = np.vdot(ket_lambda_plus,ket_w)
+               
+    return overlap_0,overlap_1,overlap_2,overlap_3
+
+
+
+
+#########################################################################
+
 
 #Networkx hypercube hamiltonian
 def hypercube_hamiltonian_networkx(dim,gamma, w, kappa):
