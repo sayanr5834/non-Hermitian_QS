@@ -114,10 +114,10 @@ def overlap_CG_theory(N,gamma,w,kappa):
     ket_s = np.array([1.0/np.sqrt(N) ,np.sqrt((N-1)/N)])
     ket_w = np.array([1,0])
 
-    overlap_0 = np.zeros(len(gamma),dtype=np.complex_)
-    overlap_1 = np.zeros(len(gamma),dtype=np.complex_)
-    overlap_2 = np.zeros(len(gamma),dtype=np.complex_)
-    overlap_3 = np.zeros(len(gamma),dtype=np.complex_)
+    overlap_0 = np.zeros(len(gamma),dtype=np.complex128)
+    overlap_1 = np.zeros(len(gamma),dtype=np.complex128)
+    overlap_2 = np.zeros(len(gamma),dtype=np.complex128)
+    overlap_3 = np.zeros(len(gamma),dtype=np.complex128)
 
     for i in range(len(gamma)):
         ket_lambda_plus, ket_lambda_minus = ket_lambda(N,gamma[i],kappa)
