@@ -51,7 +51,8 @@ jupyter notebook plotting.ipynb
 
 ### Data Availability
 
-All data and code are permanently archived on Zenodo:https://doi.org/10.5281/zenodo.18222780
+All data and code are permanently archived on Zenodo:
+https://doi.org/10.5281/zenodo.18222780
 
 ### License
 - Code: MIT License (see `LICENSE`)
