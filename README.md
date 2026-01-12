@@ -4,7 +4,7 @@
 This repository contains the data and code used to generate the data and figures for:
 
 > **Time complexity of a monitored quantum search with resetting**  
-> *Emma King, Sayan Roy, Francesco Mattiotti, Markus Bläser and Giovanna Morigi*  
+> *Emma C. King, Sayan Roy, Francesco Mattiotti, Markus Bläser and Giovanna Morigi*  
 
 ---
 
