@@ -1,6 +1,6 @@
 # Data & Code — *Time complexity of a monitored quantum search with resetting*
 
-[![DOI](https://zenodo.org/badge/919997014.svg)](https://doi.org/10.5281/zenodo.18222781)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18222781.svg)](https://doi.org/10.5281/zenodo.18222781)
 
 This repository contains the data and code used to generate the data and figures for:
 
