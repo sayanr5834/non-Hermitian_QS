@@ -456,19 +456,289 @@ def plot_figure3_from_csv(
 
 
 # ===========================Supplementary Material============================
+
 # =============================================================================
 # Figure S1 — Generate CSV
 # =============================================================================
+def generate_figureS1_csv(out_csv, N=100, save=True):
+    """
+    Generate data for the real and imaginary parts of the eigenvalues of the
+    effective system Hamiltonian and store all results in a CSV file. We fix gamma
+    to be at the exceptional point and fix N, varying monitoring strength kappa.
+
+    The CSV contains:
+    - kappa (rescaled by sqrt(N))
+    - eigenvalue 1, real part
+    - eigenvalue 2, real part
+    - eigenvalue 1, imaginary part
+    - eigenvalue 2, imaginary part
+    """
+    gamma_EP = 1.0 / (N-2)
+    kappa_EP_plus = 2 * gamma_EP * np.sqrt(N-1)  # one branch
+    gamma = gamma_EP # Fix gamma to value at the exceptional point
+    kappa_vals = np.linspace(0, kappa_EP_plus + 0.6, 501) # list of kappa values
+
+    data_rows = []
+    for j, kappa in enumerate(kappa_vals):
+        H = core.Heff_matrix(gamma, kappa, N)
+        lam, _, _ = core.eig_biorth(H)
+        idx = np.argsort(np.real(lam) + 1e-6*np.imag(lam))
+        lam = lam[idx]
+        data_rows.append([
+                    float(kappa*np.sqrt(N)),
+                    float(lam[0].real),
+                    float(lam[1].real),
+                    float(lam[0].imag),
+                    float(lam[1].imag),
+                ])
+    if not save:
+        return data_rows
+
+    with open(out_csv, mode="w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "kappa",
+            "Re(eigenvalue 1)",
+            "Re(eigenvalue 2)",
+            "Im(eigenvalue 1)",
+            "Im(eigenvalue 2)",
+        ])
+        for row in data_rows:
+            row_out = [
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+            ]
+            writer.writerow(row_out)
+
 # =============================================================================
 # Figure S1 — Plot from CSV
 # =============================================================================
+def plot_figureS1_from_csv(csv_path, fig_w=3.4, fig_h=4.74, dpi=600, save=False, out_fig=None):
+    """
+    Read CSV written by generate_figureS1_csv, and plot the figure as in the article.
+    """
+    kappaRescaled = []
+    ev1Real = []
+    ev2Real = []
+    ev1Im = []
+    ev2Im = []
+    with open(csv_path, newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            kappaRescaled.append(float(row["kappa"]))
+            ev1Real.append(float(row["Re(eigenvalue 1)"]))
+            ev2Real.append(float(row["Re(eigenvalue 2)"]))
+            ev1Im.append(float(row["Im(eigenvalue 1)"]))
+            ev2Im.append(float(row["Im(eigenvalue 2)"]))
+    N = 100
+    gamma_EP = 1.0 / (N-2)
+    kappa_EP_plus = 2 * gamma_EP * np.sqrt(N-1)
 
+    def style_axes(ax):
+        # Ticks inward on all sides
+        ax.tick_params(axis='both', which='both', direction='in', top=True, right=True)
+        # Major ticks: every 2 on x-axis
+        ax.xaxis.set_major_locator(MultipleLocator(2))
+        # Minor ticks: 4 between each major (i.e., 5 subdivisions)
+        ax.xaxis.set_minor_locator(AutoMinorLocator(5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+    fig = plt.figure(figsize=(fig_w, fig_h), constrained_layout=False)
+    gs = fig.add_gridspec(nrows=2, ncols=1, hspace=0.07)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[1, 0], sharex=ax1)
+    # (a) Re(λ)
+    ax1.plot(kappaRescaled, ev1Real, label=r'$\mathrm{Re}(\lambda_-)$', color="blue")
+    ax1.plot(kappaRescaled, ev2Real, label=r'$\mathrm{Re}(\lambda_+)$', ls="-.", color="red")
+    ax1.set_ylabel(r'$\mathrm{Re}(\lambda)$')
+    ax1.axvline(kappa_EP_plus*np.sqrt(N), ls="--", color="grey", label="EP")
+    style_axes(ax1)
+    ax1.legend(frameon=False, loc='best')
+    ax1.text(0.01, 0.93, r"$(a)$", transform=ax1.transAxes, ha="left", va="top")
+    ax1.set_xlabel(None)
+    ax1.tick_params(axis='x', which='both', labelbottom=False)
+
+    # (b) Im(λ)
+    ax2.plot(kappaRescaled, ev1Im, label=r'$\mathrm{Im}(\lambda_-)$', color="blue")
+    ax2.plot(kappaRescaled, ev2Im, label=r'$\mathrm{Im}(\lambda_+)$', ls="-.", color="red")
+    ax2.plot(kappaRescaled, np.array(ev1Im) + np.array(ev2Im), label=r'$\mathrm{Im}(\lambda_++\lambda_-)$', ls=":", color="green")
+    ax2.set_xlabel(r'$\kappa\sqrt{N}$')
+    ax2.set_ylabel(r'$\mathrm{Im}(\lambda)$')
+    ax2.axvline(kappa_EP_plus*np.sqrt(N), ls="--", color="grey", label="EP")
+    style_axes(ax2)
+    ax2.legend(frameon=False, loc='best')
+    # Panel label
+    ax2.text(0.01, 0.93, r"$(b)$", transform=ax2.transAxes, ha="left", va="top")
+
+    # ---------- make the inner axes (framed region) the same size ----------
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    def widest_ytick_width(ax):
+        ticks = [t for t in ax.get_yticklabels() if t.get_text() != ""]
+        if not ticks:
+            return 0.0
+        return max(t.get_window_extent(renderer=renderer).width for t in ticks)
+    max_w = max(widest_ytick_width(ax1), widest_ytick_width(ax2))
+    fig_w_px = fig.get_figwidth() * fig.dpi
+    left_pad_px = 8.0 # Add a padding (in pixels) between the tick labels and the axes
+    left = (max_w + left_pad_px) / fig_w_px
+    fig.subplots_adjust(left=left, right=0.995, hspace=0.25) # Apply a common left margin so both axes share identical inner width
+
+    # Save or show
+    if save:
+        if out_fig is None:
+            raise ValueError("out_fig must be provided when save=True")
+        plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
+        plt.show()
+    else:
+        plt.show()
+
+        
 # =============================================================================
 # Figure S2 — Generate CSV
 # =============================================================================
+def generate_figureS2_csv(out_csv, N=100, save=True):
+    """
+    Generate data for the real and imaginary parts of the eigenvalues of the
+    effective system Hamiltonian and store all results in a CSV file. We fix kappa
+    to be at the exceptional point (where kappa>0) and fix N, varying hopping parameter gamma.
+
+    The CSV contains:
+    - gamma (rescaled by N)
+    - eigenvalue 1, real part
+    - eigenvalue 2, real part
+    - eigenvalue 1, imaginary part
+    - eigenvalue 2, imaginary part
+    """
+    gamma_EP = 1.0 / (N-2)
+    kappa_EP_plus = 2 * gamma_EP * np.sqrt(N-1)  # one branch (positive kappa)
+    kappa = kappa_EP_plus # Fix kappa to value at the exceptional point
+    gamma_vals = np.linspace(0, gamma_EP + 0.02, 501) # list of gamma values
+
+    data_rows = []
+    for j, gamma in enumerate(gamma_vals):
+        H = core.Heff_matrix(gamma, kappa, N)
+        lam, _, _ = core.eig_biorth(H)
+        idx = np.argsort(np.real(lam) + 1e-6*np.imag(lam))
+        lam = lam[idx]
+        data_rows.append([
+                    float(gamma*N),
+                    float(lam[0].real),
+                    float(lam[1].real),
+                    float(lam[0].imag),
+                    float(lam[1].imag),
+                ])
+    if not save:
+        return data_rows
+
+    with open(out_csv, mode="w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "gamma",
+            "Re(eigenvalue 1)",
+            "Re(eigenvalue 2)",
+            "Im(eigenvalue 1)",
+            "Im(eigenvalue 2)",
+        ])
+        for row in data_rows:
+            row_out = [
+                row[0],
+                row[1],
+                row[2],
+                row[3],
+                row[4],
+            ]
+            writer.writerow(row_out)
+
 # =============================================================================
 # Figure S2 — Plot from CSV
 # =============================================================================
+def plot_figureS2_from_csv(csv_path, fig_w=3.4, fig_h=4.74, dpi=600, save=False, out_fig=None):
+    """
+    Read CSV written by generate_figureS1_csv, and plot the figure as in the article.
+    """
+    gammaRescaled = []
+    ev1Real = []
+    ev2Real = []
+    ev1Im = []
+    ev2Im = []
+    with open(csv_path, newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            gammaRescaled.append(float(row["gamma"]))
+            ev1Real.append(float(row["Re(eigenvalue 1)"]))
+            ev2Real.append(float(row["Re(eigenvalue 2)"]))
+            ev1Im.append(float(row["Im(eigenvalue 1)"]))
+            ev2Im.append(float(row["Im(eigenvalue 2)"]))
+    N = 100
+    gamma_EP = 1.0 / (N-2)
+    kappa_EP_plus = 2 * gamma_EP * np.sqrt(N-1)
+
+    def style_axes(ax):
+        # Ticks inward on all sides
+        ax.tick_params(axis='both', which='both', direction='in', top=True, right=True)
+        # Major ticks: every 2 on x-axis
+        ax.xaxis.set_major_locator(MultipleLocator(2))
+        # Minor ticks: 4 between each major (i.e., 5 subdivisions)
+        ax.xaxis.set_minor_locator(AutoMinorLocator(5))
+        ax.yaxis.set_minor_locator(AutoMinorLocator(5))
+
+    fig = plt.figure(figsize=(fig_w, fig_h), constrained_layout=False)
+    gs = fig.add_gridspec(nrows=2, ncols=1, hspace=0.07)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[1, 0], sharex=ax1)
+
+    # (a) Re(λ)
+    ax1.plot(gammaRescaled, ev1Real, label=r'$\mathrm{Re}(\lambda_-)$', color="blue")
+    ax1.plot(gammaRescaled, ev2Real, label=r'$\mathrm{Re}(\lambda_+)$', ls="-.", color="red")
+    ax1.set_xlabel(r'$\gamma N$')
+    ax1.set_ylabel(r'$\mathrm{Re}(\lambda)$')
+    ax1.axvline(gamma_EP*N, ls="--", color="grey", label="EP")
+
+    style_axes(ax1)
+    ax1.legend(frameon=False, loc='best')
+    # Panel label
+    ax1.text(0.01, 0.93, r"$(a)$", transform=ax1.transAxes, ha="left", va="top")
+    ax1.set_xlabel(None)
+    ax1.tick_params(axis='x', which='both', labelbottom=False)
+
+    # (b) Im(λ)
+    ax2.plot(gammaRescaled, ev1Im, label=r'$\mathrm{Im}(\lambda_-)$', color="blue")
+    ax2.plot(gammaRescaled, ev2Im, label=r'$\mathrm{Im}(\lambda_+)$', ls="-.", color="red")
+    ax2.plot(gammaRescaled, np.array(ev1Im) + np.array(ev2Im), label=r'$\mathrm{Im}(\lambda_++\lambda_-)$', ls=":", color="green")
+    ax2.set_xlabel(r'$\gamma N$')
+    ax2.set_ylabel(r'$\mathrm{Im}(\lambda)$')
+    ax2.axvline(gamma_EP*N, ls="--", color="grey", label="EP")
+    style_axes(ax2)
+    ax2.legend(frameon=False, loc='best')
+    # Panel label
+    ax2.text(0.01, 0.93, r"$(b)$", transform=ax2.transAxes, ha="left", va="top")
+
+    # ---------- make the inner axes (framed region) the same size ----------
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    def widest_ytick_width(ax):
+        ticks = [t for t in ax.get_yticklabels() if t.get_text() != ""]
+        if not ticks:
+            return 0.0
+        return max(t.get_window_extent(renderer=renderer).width for t in ticks)
+    max_w = max(widest_ytick_width(ax1), widest_ytick_width(ax2))
+    fig_w_px = fig.get_figwidth() * fig.dpi
+    left_pad_px = 8.0 # Add a padding (in pixels) between the tick labels and the axes
+    left = (max_w + left_pad_px) / fig_w_px
+    fig.subplots_adjust(left=left, right=0.995, hspace=0.25) # Apply a common left margin so both axes share identical inner width
+
+    # Save or show
+    if save:
+        if out_fig is None:
+            raise ValueError("out_fig must be provided when save=True")
+        plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
+        plt.show()
+    else:
+        plt.show()
 
 
 # =============================================================================
@@ -1108,9 +1378,315 @@ def plot_figureS5_from_csv(
 # =============================================================================
 # Figure S6 — Generate CSV
 # =============================================================================
+def generate_figureS6_csv(out_csv, save=True):
+    """
+    Generate data for the overlaps of the no-click probability
+    and store all results in a CSV file.
+
+    The CSV contains:
+    - panel index
+    - panel title
+    - dataset index
+    - parameters gamma bar, r exponent, kappa bar, s exponent
+    - system size N
+    - numeric overlap for fast eigenmode
+    - numeric overlap for slow eigenmode
+    - analytic overlap for fast eigenmode
+    - analytic overlap for slow eigenmode
+    """
+    Ns = np.logspace(1.5, 5, num=10, dtype=int)
+    panels = [
+        { 'title': 'Regime B',
+        'datasets': [(1,1.15,1,0.1),(1,1.2,1,1.25),(1,1.4,1,0.7)],
+        'analytic_alphas': [-1.0,-1.0,-1.0],
+        'analytic_label': r'$\sim N^{-1}$',
+        'analytic_alpha_func': None },
+        { 'title': 'Regime C',
+        'datasets': [(1,1.25,1,-0.5),(1,-0.2,1,-1.5),(1,0.5,1,-1.0)],
+        'analytic_alphas': [-1.0,-1.0,-1.0],
+        'analytic_label': r'$\sim N^{-1}$',
+        'analytic_alpha_func': None },
+        { 'title': 'Regime D',
+        'datasets': [(1,0.1,1,-0.05),(1,-0.5,1,-0.2),(1,-0.5,1,-1.0)],
+        'analytic_alphas': None,
+        'analytic_label': r'$\sim N^{2r-2s-3}$',
+        'analytic_alpha_func': lambda r,s: 2*r-2*s-3 },
+        { 'title': 'Regime B',
+        'datasets': [(1,1.15,1,0.1),(1,1.2,1,1.25),(1,1.4,1,0.7)],
+        'analytic_alphas': None,
+        'analytic_label': r'$\mathcal{O}(1)$',
+        'analytic_alpha_func': None },
+        { 'title': 'Regime C',
+        'datasets': [(1,1.25,1,-0.5),(1,-0.2,1,-1.5),(1,0.5,1,-1.0)],
+        'analytic_alphas': None,
+        'analytic_label': r'$\mathcal{O}(1)$',
+        'analytic_alpha_func': None },
+        { 'title': 'Regime D',
+        'datasets': [(1,0.1,1,-0.05),(1,-0.5,1,-0.2),(1,-0.5,1,-1.0)],
+        'analytic_alphas': None,
+        'analytic_label': r'$\mathcal{O}(1)$',
+        'analytic_alpha_func': None }
+    ]
+    data_rows = []
+
+    for p_idx, panel in enumerate(panels):
+        title = panel.get("title", "")
+        for d_idx, params in enumerate(panel.get("datasets", [])):
+            gbar, r, kbar, s = params
+            for N in Ns:
+                gamma = gbar / (N ** r)
+                kappa = kbar / (N ** s)
+                H = core.Heff_matrix(gamma, kappa, N)
+                lam, VR, VL = core.eig_biorth(H)
+                Of, Os, Opm = core.overlaps_from_bi(VR, VL, N)
+                OfA, OsA, _, _ = core.overlaps_analytic(gbar, r, kbar, s, N)
+
+                data_rows.append([
+                    int(p_idx),
+                    title,
+                    int(d_idx),
+                    float(gbar),
+                    float(r),
+                    float(kbar),
+                    float(s),
+                    int(N),
+                    float(Of),
+                    float(Os),
+                    float(OfA) if np.isfinite(OfA) else "",
+                    float(OsA) if np.isfinite(OsA) else ""
+                ])
+
+    if not save:
+        return data_rows
+
+    with open(out_csv, mode="w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "panel_index",
+            "panel_title",
+            "dataset_index",
+            "gbar",
+            "r",
+            "kbar",
+            "s",
+            "N",
+            "Of",
+            "Os",
+            "OfA",
+            "OsA"
+        ])
+        for row in data_rows:
+            # format floats with sufficient precision
+            row_out = [
+                int(row[0]),
+                row[1],
+                int(row[2]),
+                f"{row[3]:.16g}",
+                f"{row[4]:.16g}",
+                f"{row[5]:.16g}",
+                f"{row[6]:.16g}",
+                int(row[7]),
+                f"{row[8]:.16g}",
+                f"{row[9]:.16g}",
+                f"{row[10]:.16g}",
+                f"{row[11]:.16g}"
+            ]
+            writer.writerow(row_out)
+
+
 # =============================================================================
 # Figure S6 — Plot from CSV
 # =============================================================================
+def plot_figureS6_from_csv(csv_path, fig_w=6.8, fig_h=4.54, dpi=600, save=False, out_fig=None):
+    """
+    Read CSV written by generate_figureS6_csv, and plot the figure.
+    """
+    panels = [
+        { 'title': 'Regime B',
+        'analytic_alphas': [-1.0,-1.0,-1.0],
+        'analytic_label': r'$\sim N^{-1}$',
+        'analytic_alpha_func': None },
+        { 'title': 'Regime C',
+        'analytic_alphas': [-1.0,-1.0,-1.0],
+        'analytic_label': r'$\sim N^{-1}$',
+        'analytic_alpha_func': None },
+        { 'title': 'Regime D',
+        'analytic_alphas': None,
+        'analytic_label': r'$\sim N^{2r-2s-3}$',
+        'analytic_alpha_func': lambda r,s: 2*r-2*s-3 },
+        { 'title': 'Regime B',
+        'analytic_alphas': None,
+        'analytic_label': r'$\mathcal{O}(1)$',
+        'analytic_alpha_func': None },
+        { 'title': 'Regime C',
+        'analytic_alphas': None,
+        'analytic_label': r'$\mathcal{O}(1)$',
+        'analytic_alpha_func': None },
+        { 'title': 'Regime D',
+        'analytic_alphas': None,
+        'analytic_label': r'$\mathcal{O}(1)$',
+        'analytic_alpha_func': None }
+    ]
+    with open(csv_path, newline="") as f:
+        reader = csv.DictReader(f)
+        data = {}
+        for row in reader:
+            p_idx = int(row["panel_index"])
+            d_idx = int(row["dataset_index"])
+            key = (p_idx, d_idx)
+            if key not in data:
+                data[key] = {
+                    "params": (
+                        float(row["gbar"]),
+                        float(row["r"]),
+                        float(row["kbar"]),
+                        float(row["s"])
+                    ),
+                    "N": [],
+                    "Of": [],
+                    "Os": [],
+                    "OfA": [],
+                    "OsA": [],
+                    "title": str(row.get("panel_title"))
+                }
+            data[key]["N"].append(int(row["N"]))
+            data[key]["Of"].append(float(row["Of"]) if row["Of"].strip() != "" else np.nan)
+            data[key]["Os"].append(float(row["Os"]) if row["Os"].strip() != "" else np.nan)
+            data[key]["OfA"].append(float(row["OfA"]) if row.get("OfA", "").strip() != "" else np.nan)
+            data[key]["OsA"].append(float(row["OsA"]) if row.get("OsA", "").strip() != "" else np.nan)
+
+    # Convert lists -> numpy arrays and sort by N
+    for entry in data.values():
+        order = np.argsort(entry["N"])
+        entry["N"] = np.array(entry["N"])[order]
+        entry["Of"] = np.array(entry["Of"])[order]
+        entry["Os"] = np.array(entry["Os"])[order]
+        entry["OfA"] = np.array(entry["OfA"])[order]
+        entry["OsA"] = np.array(entry["OsA"])[order]
+
+    fig = plt.figure(figsize=(fig_w, fig_h))
+    plt.subplots_adjust(wspace=0.25, hspace=0.12, left=0.07, right=0.98, top=0.95, bottom=0.08)
+
+    colors_class = {
+        'D': ['#800000', '#FF0000', "#F78D66"],
+        'B': ['#000080', "#607EDB", "#E6ADFA"],
+        'C': ["#315C3F", "#37C468", "#A2BB76"]
+    }
+
+    stored_legends = [None, None, None]
+    bottom_markers = ['o', 's', '*']
+
+    for i, panel in enumerate(panels):
+        ax = fig.add_subplot(2, 3, i + 1)
+        class_idx = i % 3
+        class_label = ['B', 'C', 'D'][class_idx]
+        class_colors = colors_class[class_label]
+
+        header_label = r'$(\bar\gamma,r,\bar\kappa,s)$'
+        legend_handles = []
+        legend_labels = []
+        h_header = Line2D([0], [0], linestyle='None', marker='None', label=header_label)
+        legend_handles.append(h_header)
+        legend_labels.append(header_label)
+
+        for j in [0,1,2]:
+            key = (i, j)
+            if key not in data:
+                raise ValueError(f"Missing data for panel {i}, dataset {j} in CSV")
+
+            gbar, r, kbar, s = data[key]["params"]
+            Ns_data = data[key]["N"]
+            Of_list = data[key]["Of"]
+            Os_list = data[key]["Os"]
+            OfA_list = data[key]["OfA"]
+            OsA_list = data[key]["OsA"]
+
+            color = class_colors[j % 3]
+
+            if i < 3:
+                mk = bottom_markers[j % len(bottom_markers)]
+                ax.loglog(Ns_data, Of_list, marker=mk, linestyle='', markerfacecolor='none', markeredgecolor=color, color=color)
+                # analytic overlap from analytic routine (solid line same color) if available
+                if not np.all(np.isnan(OfA_list)):
+                    ax.loglog(Ns_data, OfA_list, ls='-', color=color)
+
+                # analytic power-law (dashed black) using analytic_alphas or analytic_alpha_func
+                if panel.get('analytic_alphas') is not None:
+                    alpha = panel['analytic_alphas'][j]
+                    analytic_line = np.array(Ns_data, dtype=float) ** float(alpha)
+                    ax.loglog(Ns_data, analytic_line, linestyle='--', linewidth=1.2, color='k')
+                elif panel.get('analytic_alpha_func') is not None:
+                    try:
+                        alpha = panel["analytic_alpha_func"](s)
+                    except TypeError:
+                        try:
+                            alpha = panel["analytic_alpha_func"](r, s)
+                        except Exception:
+                            alpha = None
+                    if alpha is not None:
+                        analytic_line = np.array(Ns_data, dtype=float) ** float(alpha)
+                        ax.loglog(Ns_data, analytic_line, linestyle='--', linewidth=1.2, color='k')
+
+                lab = f'({gbar},{r},{kbar},{s})'
+                h = Line2D([0], [0], marker=mk, linestyle='None', markerfacecolor='none', markeredgecolor=color)
+                legend_handles.append(h)
+                legend_labels.append(lab)
+
+            else:
+                mk = bottom_markers[j % len(bottom_markers)]
+                ax.plot(Ns_data, Os_list, marker=mk, linestyle='', markerfacecolor='none', markeredgecolor=color, color=color)
+                #lab = f'({gbar},{r},{kbar},{s})'
+                #h = Line2D([0], [0], marker=mk, linestyle='None', markerfacecolor='none', markeredgecolor=color)
+                #legend_handles.append(h)
+                #legend_labels.append(lab)
+
+        if i < 3 and (panel.get('analytic_alphas') is not None or panel.get('analytic_alpha_func') is not None):
+            h_dot = Line2D([0, 1], [0, 1], linestyle='--', color='black')
+            legend_handles.append(h_dot)
+            legend_labels.append(panel.get('analytic_label'))
+
+        if i < 3:
+            stored_legends[i] = (legend_handles, legend_labels)
+
+        ax.set_xlabel(r'$N$')
+        if i in [0, 1, 2]:
+            ax.set_yscale("log")
+            ax.set_xscale("log")
+            ax.set_title(data[(i,0)]["title"])
+            ax.set_xlabel('')
+            ax.set_xticklabels([])
+            ax.yaxis.set_major_locator(LogLocator(base=10.0))
+            ax.yaxis.set_minor_locator(LogLocator(base=10.0, subs=np.arange(2, 10), numticks=12))
+            ax.yaxis.set_minor_formatter(NullFormatter())
+        else:
+            ax.set_xscale("log")
+            ax.axhline(1, color="gray", ls=":")
+            ax.set_ylim(0.96, 1.005)
+            top_idx = i - 3
+            if stored_legends[top_idx] is not None:
+                handles, labels = stored_legends[top_idx]
+                ax.legend(handles, labels, handletextpad=0.4, borderpad=0.2, labelspacing=0.12, loc='lower right', frameon=True, fontsize=9)
+            else:
+                ax.legend(legend_handles, legend_labels, handletextpad=0.4, borderpad=0.2, labelspacing=0.12, loc='lower right', frameon=True, fontsize=9)
+
+        if i == 0:
+            ax.set_ylabel(r'$O_f$')
+        elif i == 3:
+            ax.set_ylabel(r'$O_s$')
+        else:
+            ax.set_ylabel('')
+
+        ax.grid(False)
+
+    # Save or show
+    if save:
+        if out_fig is None:
+            raise ValueError("out_fig must be provided when save=True")
+        plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
+        plt.show()
+    else:
+        plt.show()
+
 
 
 # =============================================================================
