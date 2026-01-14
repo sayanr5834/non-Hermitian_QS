@@ -75,9 +75,8 @@ def make_log_label_formatter(ticks_to_label):
 # =============================================================================
 # Figure 2a — Generate CSV
 # =============================================================================
-def generate_figure2a_csv(
-    out_csv, save = True
-):  
+def generate_figure2a_csv(out_csv, save = True): 
+
 
     r_vals = np.linspace(-1.0, 1.0, 1201)
     s_vals = np.linspace(-1.0, 1.0, 1201)
@@ -1019,12 +1018,10 @@ def plot_figureS2_from_csv(csv_path, fig_w=3.4, fig_h=4.74, dpi=600, save=False,
     else:
         plt.show()
 
-
-
 # =============================================================================
-# Figure 2a — Generate CSV
+# Figure S3a — Generate CSV
 # =============================================================================
-def generate_figure2a_csv(
+def generate_figureS3a_csv(
     out_csv, save = True
 ):  
 
@@ -1056,9 +1053,9 @@ def generate_figure2a_csv(
         return data
 
 # =============================================================================
-# Figure 2a — Plot from CSV
+# Figure S3a — Plot from CSV
 # =============================================================================
-def plot_figure2a_from_csv(
+def plot_figureS3a_from_csv(
     csv_path,
     out_fig,
     dpi=600, save = True
@@ -1181,10 +1178,11 @@ def plot_figure2a_from_csv(
     else:
         plt.show()
     
+
 # =============================================================================
-# Figure S3 — Generate CSV
+# Figure S3b — Generate CSV
 # =============================================================================
-def generate_figureS3_csv(
+def generate_figureS3b_csv(
     out_csv,dt = 0.01,threshold = 0.001, save = True
 ):  
 
@@ -1242,9 +1240,9 @@ def generate_figureS3_csv(
     
 
 # =============================================================================
-# Figure S3 — Plot from CSV
+# Figure S3b — Plot from CSV
 # =============================================================================
-def plot_figureS3_from_csv(
+def plot_figureS3b_from_csv(
     csv_path,
     out_fig,
     dpi=600, save = True
