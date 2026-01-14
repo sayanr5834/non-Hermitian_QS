@@ -356,7 +356,7 @@ def alpha_of_rs_scalar(rbar, s):
 
     if abs(rbar - 0.0) < 1e-3:
         return s if s >= 0.5 else 1.0 - s
-        ""
+        
     elif rbar > 0.0:
         if s >= 0:
             return 2.0*rbar + s + 1.0
@@ -624,3 +624,33 @@ def overlaps_analytic(gbar, r_exp, kbar, s_exp, N):
 
 
 
+
+def alpha_of_rs_scalar_reset(rbar, s):
+    
+    """
+    Compute the exponent alpha of the time complexity of the search process in presence of resetting.
+
+    Args:
+        rbar (float): Hopping/Tunnelling exponent i.e. gamma = \bar{gamma} N^{-rbar -1} (see main text)
+        s (float): Monitoring Exponent i.e. kappa = \bar{kappa} N^{-s} (see main text)
+        
+    Returns:
+        alpha(float): Time Complexity Exponent i.e. tau = \Theta(N^{alpha})
+    """
+
+    if abs(rbar - 0.0) < 1e-3 and s>=0:
+        return s if s >= 0.5 else 1.0 - s
+        
+    elif rbar > 0.0:
+        if s >= 0:
+            return  s + 1.0
+
+        else:
+            return   s + 1.0
+
+    else: # rbar < 1
+        if s >= rbar:
+            return 1.0 + s
+
+        elif s < rbar:
+            return   s + 1.0
