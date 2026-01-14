@@ -69,6 +69,165 @@ def make_log_label_formatter(ticks_to_label):
 
     return ticker.FuncFormatter(_formatter)
 
+
+
+
+
+
+# =============================================================================
+# Figure 3a — Generate CSV
+# =============================================================================
+def generate_figure3a_csv(
+    out_csv, save = True
+):  
+
+    r_vals = np.linspace(-1.0, 1.0, 1201)
+    s_vals = np.linspace(-1.0, 1.0, 1201)
+
+    R, S = np.meshgrid(r_vals, s_vals)
+    Alpha = np.empty_like(R)
+    for i in range(R.shape[0]):
+        for j in range(R.shape[1]):
+            Alpha[i, j] = core.alpha_of_rs_scalar_reset(R[i, j], S[i, j])
+
+    
+    # Build data for CSV
+    x_flat = R.ravel(order='C')
+    y_flat = S.ravel(order ='C')
+    z_flat = Alpha.ravel(order = 'C')
+
+
+    data = np.column_stack([x_flat, y_flat,z_flat])
+
+    # Header row 
+    header = "rbar, s, alpha"
+
+    # Save CSV
+    if save:
+        np.savetxt(out_csv, data, delimiter=",", header=header, comments="", fmt="%.16g")
+    else:
+        return data
+
+
+
+# =============================================================================
+# Figure 3a — Plot from CSV
+# =============================================================================
+def plot_figure3a_from_csv(
+    csv_path,
+    out_fig,
+    dpi=600, save = True
+):
+
+    df = pd.read_csv(csv_path, comment="#")
+    x_flat = df.iloc[:, 0].values  # alpha list
+    y_flat = df.iloc[:, 1].values  # time
+    z_flat = df.iloc[:, 2].values  # S(t)
+
+    x_vals = np.unique(x_flat)   # unique rbar
+    y_vals = np.unique(y_flat)   # unique s
+
+    R, S = np.meshgrid(x_vals, y_vals)
+    Alpha = z_flat.reshape(len(y_vals), len(x_vals))
+
+    #PRL width and height
+    width_mm = 59.94 
+    width_in = width_mm / 25.4
+    panel_h = 2.1238582677165354
+    fig, ax = plt.subplots(figsize=(width_in,panel_h),dpi =200)
+    
+    style_axes(ax)
+    for sp in ax.spines.values():
+        sp.set_zorder(50)
+
+    # plotting the special critical star (chakra) at (0, 0.5)
+    chakra  = "#000088" 
+    ax.plot(0.0, 0.5, marker='*',color= chakra, markersize=8, zorder=8)
+    ax.text(-0.45, 0.47, r'$(0,\,\frac{1}{2})$', color=chakra, fontsize=8)
+
+    #labelling markers for Fig. 2b
+    label_positions = [
+
+        (-0.15, 0.75),   # A1
+        (-0.15,0.25),    #A2
+        (0.7,0.8),    # B 
+        (0.4, -0.5),# C
+        (-0.8, 0)     # D
+    ]
+
+    letters = ["A1", "A2", "B", "C", "D"]
+    for letter, (lr, ls) in zip(letters, label_positions):
+
+        label_text = f"({letter})" #+ a_val
+
+        # place text with a white box for readability
+        ax.text(lr, ls, label_text, fontsize=8, ha='left', va='center',
+            bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="0.8", alpha=0.85))
+
+    #contour plot
+    Alpha_sneg = np.ma.masked_where(S >= 0, Alpha)  # mask out s>=0
+    cp = ax.contourf(R, S, Alpha_sneg, levels=np.arange(0.0,1.01,0.01),cmap = indian_flag_cmap(with_chakra=False))
+    cbar = plt.colorbar(cp,ax=ax, orientation="vertical", fraction=0.08,shrink = 0.85)
+    
+    # line across the colorbar at alpha = 0.5
+    cbar.ax.axhline(0.5, color=chakra, lw=1.6)
+    ticks = [0,  0.25, 0.5, 0.75, 1.0]
+    cbar.set_ticks(ticks)
+    cbar.set_ticklabels([0,r'$\frac{1}{4}$', r'$\frac{1}{2}$',r'$\frac{3}{4}$',1])
+    cbar.ax.text(0.5,1.05, r'$\alpha$', transform=cbar.ax.transAxes,ha='center', va='center')
+
+    #plot the critical line at rbar = 0
+    s_crit = np.arange(0.0, 1.01,0.01)
+    r_crit = np.zeros(len(s_crit))
+
+
+    alpha = np.array([core.alpha_of_rs_scalar(0.0,s_crit[i]) for i in range(len(s_crit))])
+
+    # Create segments for LineCollection
+    points = np.array([r_crit, s_crit]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+    # Create the line collection
+    norm = Normalize(vmin=0.0, vmax=1)
+
+
+    lc = LineCollection(
+        segments,
+        cmap=indian_flag_cmap(),
+        norm=norm,
+        array=alpha,
+        linewidth=3
+    )
+
+    line = ax.add_collection(lc)
+
+    ax.contour(R, S, Alpha, levels=[0.5], colors=chakra, linewidths=1.6, linestyles='--')
+
+    ax.set_xlabel(r'$\bar{r}$',labelpad =1,size = 8 )
+    ax.set_ylabel(r'$s$',labelpad =-6,size = 8)
+
+    # draw thin axes guide lines separating different regions
+    ax.axhline(0.0,xmin = 0.5, ls=":", color="black", linewidth=1)
+    ax.axvline(0.0,ymin = 0.5, ls=":", color="black", linewidth=1)
+    ax.plot(x_vals[x_vals<0],y_vals[y_vals<0], ls=":", color="black", linewidth=1)
+
+
+    ax.text(-0.5, -0.4, r"$s=\bar{r}$", fontsize=8, color="k", rotation=45)
+
+    #plot the points for Fig.3b
+    ax.plot(0.0, -0.9, marker='s', color= 'white', markersize=6,markeredgecolor ='k', zorder=8)
+
+    plt.yticks(fontsize =8)
+    plt.xticks(fontsize =8)
+
+
+    if save:
+        plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
+        plt.show()
+    else:
+        plt.show()
+
+
 # =============================================================================
 # Figure 2a — Generate CSV
 # =============================================================================
@@ -139,10 +298,10 @@ def plot_figure2a_from_csv(
     ax.text(-0.45, 0.47, r'$(0,\,\frac{1}{2})$', color=chakra, fontsize=8)
 
     #plot the points for Fig.2b
-    ax.plot(0.25, 0.25, marker='o', color= 'gray', markersize=8,markeredgecolor ='k', zorder=8)
+    ax.plot(-0.5, -0.5, marker='o', color= chakra, markersize=6,markeredgecolor ='k', zorder=8)
     ax.plot(-0.9, -1.0, marker='s', color='crimson', markersize=7,markeredgecolor ='k', zorder=8)
-    ax.plot(-0.5, 0.0, marker='d', color='gold', markersize=8,markeredgecolor ='k', zorder=8)
-    ax.plot(0.0, 0.85, marker='v', color='violet', markersize=8,markeredgecolor ='k', zorder=8)
+    ax.plot(-0.45, -0.1, marker='d', color='gold', markersize=8,markeredgecolor ='k', zorder=8)
+    ax.plot(-0.7, -0.6, marker='v', color='violet', markersize=8,markeredgecolor ='k', zorder=8)
 
     #labelling markers for Fig. 2b
     label_positions = [
@@ -228,7 +387,7 @@ def plot_figure2a_from_csv(
         plt.show()
     else:
         plt.show()
-    
+
 # =============================================================================
 # Figure 2b — Generate CSV
 # =============================================================================
@@ -240,15 +399,14 @@ def generate_figure2b_csv(
     Tstep = np.logspace(1,15.6,2500,dtype=int)
 
     #List of system size
-    Nlist = np.logspace(2,5,50,dtype=int) 
+    Nlist = np.logspace(1,5,50,dtype=int) 
     
     #rbar-s list
     rbars_list = [
         (-0.9,-1.0),
-        (-0.5,0.0),
-        (0.0,0.5),
-        (0.0,0.85),
-        (0.25,0.25)
+        (-0.45,-0.1),
+        (-0.7,-0.6),
+        (-0.5,-0.5)
     ]
 
     results = []
@@ -276,10 +434,9 @@ def generate_figure2b_csv(
     header = (
         "N,"
         "tau (rbar=-0.9+s=-1.0),"
-        "tau (rbar=-0.5+s=0.0),"
-        "tau (rbar=0.0+s=0.5),"
-        "tau (rbar=0.0+s=0.85),"
-        "tau (rbar=0.25+s=0.25)"
+        "tau (rbar=-0.45+s=-0.1),"
+        "tau (rbar=-0.7+s=-0.6),"
+        "tau (rbar=-0.5+s=-0.5),"        
     )
 
     # Save / return
@@ -287,11 +444,73 @@ def generate_figure2b_csv(
         np.savetxt(out_csv, data, delimiter=",", header=header, comments="", fmt="%.16g")
     else:
         return data
-    
 
 # =============================================================================
 # Figure 2b — Plot from CSV
 # =============================================================================
+
+def _y_at_xcut_loglog(x, y, xcut):
+    x = np.asarray(x); y = np.asarray(y)
+    order = np.argsort(x)
+    x = x[order]; y = y[order]
+
+    # clip to valid range
+    if xcut <= x[0]:  return y[0]
+    if xcut >= x[-1]: return y[-1]
+
+    lx = np.log10(x)
+    ly = np.log10(y)
+    ycut_log = np.interp(np.log10(xcut), lx, ly)
+    return 10**ycut_log
+
+def plot_faded_after(ax, x, y, xcut, marker, color,
+                     ms=4, edgecolor='k', edgewidth=0.7,
+                     alpha_after=0.5, annotate=True, text=None):
+    """Plot (x,y) with full alpha up to xcut, and faded after xcut."""
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    m1 = x <= xcut
+    m2 = x > xcut
+
+    # main part
+    ax.plot(x[m1], y[m1], marker,
+            markersize=ms, color=color,
+            markeredgecolor=edgecolor, markeredgewidth=edgewidth,
+            alpha=1.0)
+
+    # faded tail
+    if np.any(m2):
+        ax.plot(x[m2], y[m2], marker,
+                markersize=ms, color=color,
+                markeredgecolor=edgecolor, markeredgewidth=edgewidth,
+                alpha=alpha_after)
+
+    # reference line
+    if annotate and (x.min() <= xcut <= x.max()):
+        ycut = _y_at_xcut_loglog(x, y, xcut)
+
+        # from bottom of plot (in log scale, this is the "x-axis line" visually)
+        ymin = ax.get_ylim()[0]
+        ymax = ax.get_ylim()[1]
+        ax.vlines(xcut, ymin=ymin, ymax=ycut, color=color, lw=0.8, ls=':', alpha=0.9)
+
+
+
+def plot_line_faded_after(ax, x, y, xcut, color, ls='--', lw=1,
+                          alpha_before=0.8, alpha_after=0.25):
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    m1 = x <= xcut
+    m2 = x > xcut
+
+    ax.plot(x[m1], y[m1], color=color, ls=ls, lw=lw, alpha=alpha_before)
+    if np.any(m2):
+        ax.plot(x[m2], y[m2], color=color, ls=ls, lw=lw, alpha=alpha_after)
+ 
+
+
 def plot_figure2b_from_csv(
     csv_path,
     out_fig,
@@ -301,11 +520,15 @@ def plot_figure2b_from_csv(
     df = pd.read_csv(csv_path, comment="#")
     Nlist = df.iloc[:, 0].values
     results_0 = df.iloc[:, 1].values  # rbar=-0.9,s=-1.0
-    results_1 = df.iloc[:, 2].values  # rbar=-0.5,s=0.0
-    results_2 = df.iloc[:, 3].values  # rbar=0.0,s=0.5
-    results_3 = df.iloc[:, 4].values  # rbar=0.0,s=0.85
-    results_4 = df.iloc[:, 5].values  # rbar=0.25,s=0.25
+    results_1 = df.iloc[:, 2].values  # rbar=-0.45,s=-0.1
+    results_2 = df.iloc[:, 3].values  # rbar= -0.7,s=-0.6
+    results_3 = df.iloc[:, 4].values  # rbar= -0.5,s=-0.5
 
+    dt =0.01
+    N1 = (dt)**(1.0/(-1.0))
+    N2 = (dt)**(1.0/(-0.45))
+    N3 = (dt)**(1.0/(-0.7))
+    N4 = (dt)**(1.0/(-0.5))
 
     #PRL width and height
     width_mm = 28.77
@@ -314,24 +537,32 @@ def plot_figure2b_from_csv(
     fig, ax2 = plt.subplots(figsize=(width_in,panel_h),dpi =200)
     style_axes(ax2)
 
-    #scaling as predicted from the theory (See table 1)
+   
     chakra  = "#000088" 
-    ax2.plot(Nlist,4*Nlist**(0.2) ,color = 'crimson',ls ='--',lw = 1)
-    ax2.plot(Nlist,6*Nlist**(1/2) ,color = chakra,ls ='--',lw = 1)
-    ax2.plot(Nlist,3*Nlist**(1.75) ,color = 'grey',ls ='--',lw = 1)
-    ax2.plot(Nlist,4*Nlist**(1),color = 'gold',ls ='--',lw = 1)
-    ax2.plot(Nlist,7.5*Nlist**(0.85),color = 'violet',ls ='--',lw = 1)
+    # build the theory curves
+    y_th0 = 4.4 * Nlist**0.2
+    y_th1 = 3.0 * Nlist**0.9
+    y_th2 = 4.0 * Nlist**0.4
+    y_th3 = 6.0 * Nlist**0.5
 
-    #Plotting every 6 points for ease of visualization
-    ax2.plot(Nlist[::6], results_0[::6],'s',markersize = 4,color = 'crimson',markeredgecolor ='k',markeredgewidth= 0.7)
-    ax2.plot(Nlist[::6], results_1[::6],'d',markersize = 4,color = 'gold',markeredgecolor ='k',markeredgewidth= 0.7)
-    ax2.plot(Nlist[::6], results_2[::6],'*',markersize = 4,color = chakra)
-    ax2.plot(Nlist[::6], results_3[::6],'v',markersize = 4,color = 'violet',markeredgecolor ='k',markeredgewidth= 0.7)
-    ax2.plot(Nlist[::6], results_4[::6],'o',markersize = 4,color = 'grey',markeredgecolor ='k',markeredgewidth= 0.7)
+    # plot theory curves faded after their corresponding Ni
+    plot_line_faded_after(ax2, Nlist, y_th0, N1, color='crimson', ls='--', lw=1)
+    plot_line_faded_after(ax2, Nlist, y_th1, N2, color='gold',    ls='--', lw=1)
+    plot_line_faded_after(ax2, Nlist, y_th2, N3, color='violet',  ls='--', lw=1)
+    plot_line_faded_after(ax2, Nlist, y_th3, N4, color=chakra,    ls='--', lw=1)
 
+    # Plotting every 6 points (same as your code)
+    x6 = Nlist[::4]
+
+    plot_faded_after(ax2, x6, results_0[::4], N1, 's', 'crimson', alpha_after=0.25)
+    plot_faded_after(ax2, x6, results_1[::4], N2, 'd', 'gold',    alpha_after=0.25)
+    plot_faded_after(ax2, x6, results_2[::4], N3, 'v', 'violet',  alpha_after=0.25)
+    plot_faded_after(ax2, x6, results_3[::4], N4, 'o', chakra,    alpha_after=0.25)
+
+    
     ax2.set_yscale('log')
     ax2.set_xscale('log')
-
+    ax2.set_ylim(bottom=1)
     ax2.set_xlabel(r'$N$',labelpad = 0,size =8)
     ax2.set_ylabel(r'$\tau$',labelpad = 0,size = 10)
 
@@ -343,14 +574,13 @@ def plot_figure2b_from_csv(
 
     ax2.xaxis.set_minor_formatter(ticker.NullFormatter())
     ax2.yaxis.set_minor_formatter(ticker.NullFormatter())
-    ax2.text(2e4, 1e9, r"B", fontsize=8, color='grey', rotation=0)
-    ax2.text(2e4, 5e5, r"D", fontsize=8, color='gold', rotation=0)
-    ax2.text(2e4, 1e4, r"A1", fontsize=8, color='violet', rotation=0)
-    ax2.text(2e4, 0.7e1, r"C", fontsize=8, color='crimson', rotation=0)
 
+    ax2.set_xticks([10, 1000, 100000])
 
-    ax2.text(4.3e3, 1e2, r"$\Theta(\sqrt{N})$", fontsize=8, color=chakra, rotation=0)
-
+    ax2.text(14, 2, r"$N_1^*$", fontsize=7, color='crimson', rotation=0)
+    ax2.text(1.2e2, 2, r"$N_2^*$", fontsize=7, color='violet', rotation=0)
+    ax2.text(1.5e3, 2, r"$N_3^*$", fontsize=7, color=chakra, rotation=0)
+    ax2.text(3e4, 2, r"$N_4^*$", fontsize=7, color='gold', rotation=0)
 
     if save:
         plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
@@ -359,95 +589,141 @@ def plot_figure2b_from_csv(
         plt.show()
 
 
+
+
 # =============================================================================
-# Figure 3 — Generate CSV
+# Figure 3b — Generate CSV
 # =============================================================================
-def generate_figure3_csv(
-    out_csv,dt =0.01,gbar =0.9,rbar =0.0,kbar =1.0,s =0.5,threshold =0.001, save = True
+def generate_figure3b_csv(
+    out_csv,dt = 0.01,threshold = 0.001, save = True
 ):  
-    #time in logspace to compute the non-reset time
-    T_step = np.logspace(1,7,2500)
-    Nlist = [1000,5000,10000]
 
-    #time in linear space to see the effect of resetting
-    T = np.arange(10,100,0.01)
+    #Time in logspace
+    Tstep = np.logspace(1,15.6,2500,dtype=int)
 
-    reset_time = np.zeros((len(Nlist),len(T)))
+    #List of system size
+    Nlist = np.logspace(1,3,50,dtype=int) 
+    
+    #rbar-s list
+    rbar = 0.0
+    s = -0.9
+
     non_reset_time = np.zeros(len(Nlist))
+    reset_time = np.zeros(len(Nlist))
+    for N,Nval in enumerate(Nlist):
 
-    for nn, N_val in enumerate(tqdm(Nlist)):
-        gamma = gbar*N_val**(-(rbar + 1))
-        kappa = kbar*N_val**(-s)  
+        gamma = Nval**(-(rbar+1))
+        kappa = Nval**(-s)
 
-        #non-reset time
-        s_nr = np.real(core.surv_prob_theory_total_logspace(T_step, dt, N_val, gamma, kappa))
-        non_reset_time[nn] = core.find_transition_point(s_nr,T_step, dt,threshold)    
+        s_nr = core.surv_prob_theory_total_logspace(Tstep, dt, Nval, gamma, kappa)
+        non_reset_time[N] = core.find_transition_point(s_nr,Tstep, dt,threshold)
 
-        for tt,T_val in enumerate(T):
-            # Computing no-click probability at time T and then computing m according to the main text.
-            # See the section on "Impact of Resetting"
-            S_T = np.real(core.surv_prob_theory_T(T_val, N_val, gamma, kappa))
- 
+
+    for N,Nval in enumerate(Nlist):
+        T_R = Nval**(s)
+        if T_R >= dt:
+            S_T = core.surv_prob_theory_T(T_R, Nval, gamma, kappa)
+
             if S_T >=threshold:
-                m = np.round(np.log(threshold)/np.log(S_T))
-                reset_time[nn,tt] = m*T_val
+                m = np.log(threshold)/np.log(S_T)
+                reset_time[N] = m*T_R
             else:
-                reset_time[nn,tt] = non_reset_time[nn]
+                reset_time[N] = non_reset_time[N]
+        else:
+            S_T = core.surv_prob_theory_T(dt, Nval, gamma, kappa)
 
-    # Last column: only 3 values, rest NaN
-    non_reset_col = np.full(T.shape, np.nan, dtype=float)
-    non_reset_col[:len(non_reset_time)] = non_reset_time 
+            if S_T >=threshold:
+                m = np.log(threshold)/np.log(S_T)
+                reset_time[N] = m*dt
+            else:
+                reset_time[N] = non_reset_time[N]
 
-    # Data
-    data = np.column_stack([T, reset_time[0], reset_time[1], reset_time[2], non_reset_col])
+    data = np.column_stack([Nlist] + [non_reset_time] + [reset_time])
 
-    # Header:
+    # Header row (no leading '#', clean commas)
     header = (
-        "Epoch Time T, "
-        "reset_time (N=1000), "
-        "reset_time (N=5000), "
-        "reset_time (N=10000), "
-        "non_reset_time (only first 3 rows)"
+        "N,"
+        "Non Reset tau (rbar=0.0+s=-0.9),"
+        "Reset tau (rbar=0.0+s=-0.9)"
     )
 
- 
     # Save / return
     if save:
         np.savetxt(out_csv, data, delimiter=",", header=header, comments="", fmt="%.16g")
     else:
         return data
+    
 
 # =============================================================================
-# Figure 3 — Plot from CSV
+# Figure 3b — Plot from CSV
 # =============================================================================
-def plot_figure3_from_csv(
+def plot_figure3b_from_csv(
     csv_path,
     out_fig,
     dpi=600, save = True
 ):
 
     df = pd.read_csv(csv_path, comment="#")
-    T = df.iloc[:, 0].values
-    reset_time_0 = df.iloc[:, 1].values  # N = 1000
-    reset_time_1 = df.iloc[:, 2].values  # N = 5000
-    reset_time_2 = df.iloc[:, 3].values  # N = 10000
-    non_reset_time = df.iloc[:, 4].values  
+    Nlist = df.iloc[:, 0].values
+    non_reset_time = df.iloc[:, 1].values 
+    reset_time = df.iloc[:, 2].values 
+ 
 
-    width_mm = 179.832/2
+
+    #PRL width and height
+    width_mm = 28.77
     width_in = width_mm / 25.4
-    panel_aspect = 3/8   
-    panel_h = width_in * panel_aspect
-    fig, ax = plt.subplots(figsize=(width_in,panel_h),dpi=200)
-    style_axes(ax)
+    panel_h = 2.1238582677165354
+    fig, ax2 = plt.subplots(figsize=(width_in,panel_h),dpi =200)
+    style_axes(ax2)
 
-    ax.plot(T,reset_time_0/non_reset_time[0],'-',label = r'$N = 1000$')
-    ax.plot(T,reset_time_1/non_reset_time[1],'--',label = r'$N = 5000$')
-    ax.plot(T,reset_time_2/non_reset_time[2],'-.',label = r'$N = 10000$')
-    ax.set_xlabel(r'$T$')
-    ax.set_ylabel(r'$\tau_R/\tau$')
-    ax.legend(frameon = False)
-    ax.axhline(1,color = 'k', ls ='--')
+    dt =0.01
+    s = -0.9
+    Nbar = int((dt)**(1.0/s))
 
+    #scaling as predicted from the theory (See table 1)
+    chakra  = "#000088" 
+    ax2.plot(Nlist,4*Nlist**(1.9) ,color = 'crimson',ls ='--',lw = 1)
+    ax2.plot(Nlist,6*Nlist**(0.1),color = 'violet',ls ='--',lw = 1)
+
+    ax2.axvline(Nbar,color = 'k',ls ='--',lw = 1,alpha = 0.5)
+
+   # ---- grey shaded region to the right of Nbar ----
+    x1 = ax2.get_xlim()[1]          # current right x-limit
+    ax2.axvspan(Nbar, x1, color='grey', alpha=0.25, zorder=0)
+
+
+    #Plotting every 6 points for ease of visualization
+    ax2.plot(Nlist[::6], (np.pi/2)*np.sqrt(Nlist[::6]),color = chakra,label = r"$\tau_{G}$")
+    ax2.plot(Nlist[::4], non_reset_time[::4],'s',markersize = 3,color = 'crimson',markeredgecolor ='k',markeredgewidth= 0.7,label = r"$\tau$" )
+    ax2.plot(Nlist[::4], reset_time[::4],'s',markersize = 3,color = 'violet',markeredgecolor ='k',markeredgewidth= 0.7, label = r"$\tau_R$")
+
+
+    ax2.legend(
+    loc='upper left',
+    frameon=False,
+    labelspacing=0.2,   # vertical space between legend rows (default ~0.5)
+    handletextpad=0.4,  # space between handle (line/marker) and text
+    handlelength=1.2,   # length of the line in the legend
+    borderpad=0.1,      # padding inside the legend box (even if frameon=False)
+    markerscale=0.9     # scale legend markers a bit (optional)
+    )
+
+    ax2.set_yscale('log')
+    ax2.set_xscale('log')
+
+    ax2.set_xlabel(r'$N$',labelpad = 0,size =8)
+
+    nticks = 9
+    min_loc = ticker.LogLocator(subs='all', numticks=nticks)
+    ax2.xaxis.set_minor_locator(min_loc)
+    ax2.yaxis.set_minor_locator(min_loc)
+
+
+    ax2.xaxis.set_minor_formatter(ticker.NullFormatter())
+    ax2.yaxis.set_minor_formatter(ticker.NullFormatter())
+
+    
     if save:
         plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
         plt.show()
@@ -741,10 +1017,302 @@ def plot_figureS2_from_csv(csv_path, fig_w=3.4, fig_h=4.74, dpi=600, save=False,
         plt.show()
 
 
+
+# =============================================================================
+# Figure 2a — Generate CSV
+# =============================================================================
+def generate_figure2a_csv(
+    out_csv, save = True
+):  
+
+    r_vals = np.linspace(-1.0, 1.0, 1201)
+    s_vals = np.linspace(-1.0, 1.0, 1201)
+
+    R, S = np.meshgrid(r_vals, s_vals)
+    Alpha = np.empty_like(R)
+    for i in range(R.shape[0]):
+        for j in range(R.shape[1]):
+            Alpha[i, j] = core.alpha_of_rs_scalar(R[i, j], S[i, j])
+
+    
+    # Build data for CSV
+    x_flat = R.ravel(order='C')
+    y_flat = S.ravel(order ='C')
+    z_flat = Alpha.ravel(order = 'C')
+
+
+    data = np.column_stack([x_flat, y_flat,z_flat])
+
+    # Header row 
+    header = "rbar, s, alpha"
+
+    # Save CSV
+    if save:
+        np.savetxt(out_csv, data, delimiter=",", header=header, comments="", fmt="%.16g")
+    else:
+        return data
+
+# =============================================================================
+# Figure 2a — Plot from CSV
+# =============================================================================
+def plot_figure2a_from_csv(
+    csv_path,
+    out_fig,
+    dpi=600, save = True
+):
+
+    df = pd.read_csv(csv_path, comment="#")
+    x_flat = df.iloc[:, 0].values  # alpha list
+    y_flat = df.iloc[:, 1].values  # time
+    z_flat = df.iloc[:, 2].values  # S(t)
+
+    x_vals = np.unique(x_flat)   # unique rbar
+    y_vals = np.unique(y_flat)   # unique s
+
+    R, S = np.meshgrid(x_vals, y_vals)
+    Alpha = z_flat.reshape(len(y_vals), len(x_vals))
+
+    #PRL width and height
+    width_mm = 59.94 
+    width_in = width_mm / 25.4
+    panel_h = 2.1238582677165354
+    fig, ax = plt.subplots(figsize=(width_in,panel_h),dpi =200)
+    
+    style_axes(ax)
+    for sp in ax.spines.values():
+        sp.set_zorder(50)
+
+    # plotting the special critical star (chakra) at (0, 0.5)
+    chakra  = "#000088" 
+    ax.plot(0.0, 0.5, marker='*',color= chakra, markersize=8, zorder=8)
+    ax.text(-0.45, 0.47, r'$(0,\,\frac{1}{2})$', color=chakra, fontsize=8)
+
+    #plot the points for Fig.2b
+    ax.plot(0.25, 0.25, marker='o', color= 'gray', markersize=8,markeredgecolor ='k', zorder=8)
+    ax.plot(-0.9, -1.0, marker='s', color='crimson', markersize=7,markeredgecolor ='k', zorder=8)
+    ax.plot(-0.5, 0.0, marker='d', color='gold', markersize=8,markeredgecolor ='k', zorder=8)
+    ax.plot(0.0, 0.85, marker='v', color='violet', markersize=8,markeredgecolor ='k', zorder=8)
+
+    #labelling markers for Fig. 2b
+    label_positions = [
+
+        (-0.1, 0.7),   # A1
+        (-0.1,0.15),    #A2
+        (0.7,0.8),    # B 
+        (0.4, -0.5),# C
+        (-0.8, 0)     # D
+    ]
+
+
+    letters = ["A1", "A2", "B", "C", "D"]
+
+    for letter, (lr, ls) in zip(letters, label_positions):
+
+        label_text = f"({letter})" #+ a_val
+
+        # place text with a white box for readability
+        ax.text(lr, ls, label_text, fontsize=8, ha='left', va='center',
+            bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="0.8", alpha=0.85))
+
+    #contour plot
+    Alpha_sneg = np.ma.masked_where(S >= 0, Alpha)  # mask out s>=0
+    cp = ax.contourf(R, S, Alpha_sneg, levels=np.arange(0.0,1.01,0.01),cmap = indian_flag_cmap(with_chakra=False))
+    cbar = plt.colorbar(cp,ax=ax, orientation="vertical", fraction=0.08,shrink = 0.85)
+    
+    # line across the colorbar at alpha = 0.5
+    cbar.ax.axhline(0.5, color=chakra, lw=1.6)
+    ticks = [0,  0.25, 0.5, 0.75, 1.0]
+    cbar.set_ticks(ticks)
+    cbar.set_ticklabels([0,r'$\frac{1}{4}$', r'$\frac{1}{2}$',r'$\frac{3}{4}$',1])
+    cbar.ax.text(0.5,1.05, r'$\alpha$', transform=cbar.ax.transAxes,ha='center', va='center')
+
+    #plot the critical line at rbar = 0
+    s_crit = np.arange(0.0, 1.01,0.01)
+    r_crit = np.zeros(len(s_crit))
+
+
+    alpha = np.array([core.alpha_of_rs_scalar(0.0,s_crit[i]) for i in range(len(s_crit))])
+
+    # Create segments for LineCollection
+    points = np.array([r_crit, s_crit]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+    # Create the line collection
+    norm = Normalize(vmin=0.0, vmax=1)
+
+
+    lc = LineCollection(
+        segments,
+        cmap=indian_flag_cmap(),
+        norm=norm,
+        array=alpha,
+        linewidth=3
+    )
+
+    line = ax.add_collection(lc)
+
+    ax.contour(R, S, Alpha, levels=[0.5], colors=chakra, linewidths=1.6, linestyles='--')
+
+    ax.set_xlabel(r'$\bar{r}$',labelpad =1,size = 8 )
+    ax.set_ylabel(r'$s$',labelpad =-6,size = 8)
+
+    # draw thin axes guide lines separating different regions
+    ax.axhline(0.0,xmin = 0.5, ls=":", color="black", linewidth=1)
+    ax.axvline(0.0,ymin = 0.5, ls=":", color="black", linewidth=1)
+    ax.plot(x_vals[x_vals<0],y_vals[y_vals<0], ls=":", color="black", linewidth=1)
+
+
+    ax.text(-0.5, -0.4, r"$s=\bar{r}$", fontsize=8, color="k", rotation=45)
+    ax.text(-0.66, -0.95, r"$s= 2\bar{r} +\frac{1}{2}$", fontsize=8, color=chakra, rotation=65)
+    ax.text(-0.42, -0.95, r"$s= 2\bar{r}$", fontsize=8, color = '#138808', rotation=65)
+
+
+
+    plt.yticks(fontsize =8)
+    plt.xticks(fontsize =8)
+
+
+    if save:
+        plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
+        plt.show()
+    else:
+        plt.show()
+    
 # =============================================================================
 # Figure S3 — Generate CSV
 # =============================================================================
 def generate_figureS3_csv(
+    out_csv,dt = 0.01,threshold = 0.001, save = True
+):  
+
+    #Time in logspace
+    Tstep = np.logspace(1,15.6,2500,dtype=int)
+
+    #List of system size
+    Nlist = np.logspace(2,5,50,dtype=int) 
+    
+    #rbar-s list
+    rbars_list = [
+        (-0.9,-1.0),
+        (-0.5,0.0),
+        (0.0,0.5),
+        (0.0,0.85),
+        (0.25,0.25)
+    ]
+
+    results = []
+
+    i=0
+    for (rbar, s) in rbars_list:
+
+        results.append([])
+        for N,Nval in enumerate(Nlist):
+
+            gamma = Nval**(-(rbar+1))
+            kappa = Nval**(-s)
+
+            s_nr = core.surv_prob_theory_total_logspace(Tstep, dt, Nval, gamma, kappa)
+            results[i].append(core.find_transition_point(s_nr,Tstep, dt,threshold))
+        i = i + 1
+
+
+    # --- build data matrix: Nlist + results columns ---
+    cols = [np.asarray(results[j], dtype=float) for j in range(len(results))]
+
+    data = np.column_stack([Nlist] + cols)
+
+    # Header row (no leading '#', clean commas)
+    header = (
+        "N,"
+        "tau (rbar=-0.9+s=-1.0),"
+        "tau (rbar=-0.5+s=0.0),"
+        "tau (rbar=0.0+s=0.5),"
+        "tau (rbar=0.0+s=0.85),"
+        "tau (rbar=0.25+s=0.25)"
+    )
+
+    # Save / return
+    if save:
+        np.savetxt(out_csv, data, delimiter=",", header=header, comments="", fmt="%.16g")
+    else:
+        return data
+    
+
+# =============================================================================
+# Figure S3 — Plot from CSV
+# =============================================================================
+def plot_figureS3_from_csv(
+    csv_path,
+    out_fig,
+    dpi=600, save = True
+):
+
+    df = pd.read_csv(csv_path, comment="#")
+    Nlist = df.iloc[:, 0].values
+    results_0 = df.iloc[:, 1].values  # rbar=-0.9,s=-1.0
+    results_1 = df.iloc[:, 2].values  # rbar=-0.5,s=0.0
+    results_2 = df.iloc[:, 3].values  # rbar=0.0,s=0.5
+    results_3 = df.iloc[:, 4].values  # rbar=0.0,s=0.85
+    results_4 = df.iloc[:, 5].values  # rbar=0.25,s=0.25
+
+
+    #PRL width and height
+    width_mm = 28.77
+    width_in = width_mm / 25.4
+    panel_h = 2.1238582677165354
+    fig, ax2 = plt.subplots(figsize=(width_in,panel_h),dpi =200)
+    style_axes(ax2)
+
+    #scaling as predicted from the theory (See table 1)
+    chakra  = "#000088" 
+    ax2.plot(Nlist,4*Nlist**(0.2) ,color = 'crimson',ls ='--',lw = 1)
+    ax2.plot(Nlist,6*Nlist**(1/2) ,color = chakra,ls ='--',lw = 1)
+    ax2.plot(Nlist,3*Nlist**(1.75) ,color = 'grey',ls ='--',lw = 1)
+    ax2.plot(Nlist,4*Nlist**(1),color = 'gold',ls ='--',lw = 1)
+    ax2.plot(Nlist,7.5*Nlist**(0.85),color = 'violet',ls ='--',lw = 1)
+
+    #Plotting every 6 points for ease of visualization
+    ax2.plot(Nlist[::6], results_0[::6],'s',markersize = 4,color = 'crimson',markeredgecolor ='k',markeredgewidth= 0.7)
+    ax2.plot(Nlist[::6], results_1[::6],'d',markersize = 4,color = 'gold',markeredgecolor ='k',markeredgewidth= 0.7)
+    ax2.plot(Nlist[::6], results_2[::6],'*',markersize = 4,color = chakra)
+    ax2.plot(Nlist[::6], results_3[::6],'v',markersize = 4,color = 'violet',markeredgecolor ='k',markeredgewidth= 0.7)
+    ax2.plot(Nlist[::6], results_4[::6],'o',markersize = 4,color = 'grey',markeredgecolor ='k',markeredgewidth= 0.7)
+
+    ax2.set_yscale('log')
+    ax2.set_xscale('log')
+
+    ax2.set_xlabel(r'$N$',labelpad = 0,size =8)
+    ax2.set_ylabel(r'$\tau$',labelpad = 0,size = 10)
+
+    nticks = 9
+    min_loc = ticker.LogLocator(subs='all', numticks=nticks)
+    ax2.xaxis.set_minor_locator(min_loc)
+    ax2.yaxis.set_minor_locator(min_loc)
+
+
+    ax2.xaxis.set_minor_formatter(ticker.NullFormatter())
+    ax2.yaxis.set_minor_formatter(ticker.NullFormatter())
+    ax2.text(2e4, 1e9, r"B", fontsize=8, color='grey', rotation=0)
+    ax2.text(2e4, 5e5, r"D", fontsize=8, color='gold', rotation=0)
+    ax2.text(2e4, 1e4, r"A1", fontsize=8, color='violet', rotation=0)
+    ax2.text(2e4, 0.7e1, r"C", fontsize=8, color='crimson', rotation=0)
+
+
+    ax2.text(4.3e3, 1e2, r"$\Theta(\sqrt{N})$", fontsize=8, color=chakra, rotation=0)
+
+
+    if save:
+        plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
+        plt.show()
+    else:
+        plt.show()
+
+
+
+# =============================================================================
+# Figure S4 — Generate CSV
+# =============================================================================
+def generate_figureS4_csv(
     out_csv,
     Ns,
     panels, save = True
@@ -806,9 +1374,9 @@ def generate_figureS3_csv(
 
 
 # =============================================================================
-# Figure S3 — Plot from CSV
+# Figure S4 — Plot from CSV
 # =============================================================================
-def plot_figureS3_from_csv(
+def plot_figureS4_from_csv(
     csv_path,
     out_fig,
     fig_w=6.8, 
@@ -1019,9 +1587,9 @@ def plot_figureS3_from_csv(
  
 
 # =============================================================================
-# Figure S4 — Generate CSV
+# Figure S5 — Generate CSV
 # =============================================================================
-def generate_figureS4_csv(
+def generate_figureS5_csv(
     out_csv,
     Ns,
     panels, save = True
@@ -1082,9 +1650,9 @@ def generate_figureS4_csv(
                     ])
 
 # =============================================================================
-# Figure S4 — Plot from CSV
+# Figure S5 — Plot from CSV
 # =============================================================================
-def plot_figureS4_from_csv(
+def plot_figureS5_from_csv(
     csv_path,
     out_fig,
     fig_w=6.8, 
@@ -1224,9 +1792,9 @@ def plot_figureS4_from_csv(
 
 
 # =============================================================================
-# Figure S5 — Generate CSV
+# Figure S6 — Generate CSV
 # =============================================================================
-def generate_figureS5_csv(
+def generate_figureS6_csv(
     out_csv,dt =0.01, save = True
 ):
 
@@ -1291,9 +1859,9 @@ def generate_figureS5_csv(
 
 
 # =============================================================================
-# Figure S5 — Plot from CSV
+# Figure S6 — Plot from CSV
 # =============================================================================
-def plot_figureS5_from_csv(
+def plot_figureS6_from_csv(
     csv_path,
     out_fig,
     dpi=600, save = True
@@ -1376,9 +1944,9 @@ def plot_figureS5_from_csv(
         plt.show()
 
 # =============================================================================
-# Figure S6 — Generate CSV
+# Figure S7 — Generate CSV
 # =============================================================================
-def generate_figureS6_csv(out_csv, save=True):
+def generate_figureS7_csv(out_csv, save=True):
     """
     Generate data for the overlaps of the no-click probability
     and store all results in a CSV file.
@@ -1495,9 +2063,9 @@ def generate_figureS6_csv(out_csv, save=True):
 
 
 # =============================================================================
-# Figure S6 — Plot from CSV
+# Figure S7 — Plot from CSV
 # =============================================================================
-def plot_figureS6_from_csv(csv_path, fig_w=6.8, fig_h=4.54, dpi=600, save=False, out_fig=None):
+def plot_figureS7_from_csv(csv_path, fig_w=6.8, fig_h=4.54, dpi=600, save=False, out_fig=None):
     """
     Read CSV written by generate_figureS6_csv, and plot the figure.
     """
@@ -1690,9 +2258,9 @@ def plot_figureS6_from_csv(csv_path, fig_w=6.8, fig_h=4.54, dpi=600, save=False,
 
 
 # =============================================================================
-# Figure S7 — Generate CSV
+# Figure S8 — Generate CSV
 # =============================================================================
-def generate_figureS7_csv(
+def generate_figureS8_csv(
     out_csv,dt =0.01,  N = 1000000, Tcutoff = 10000, r = 1.0, s = 0.5,  save = True
 ):
     time_array = np.arange(0,Tcutoff,dt)
@@ -1722,9 +2290,9 @@ def generate_figureS7_csv(
         return data
 
 # =============================================================================
-# Figure S7 — Plot from CSV
+# Figure S8 — Plot from CSV
 # =============================================================================
-def plot_figureS7_from_csv(
+def plot_figureS8_from_csv(
     csv_path,
     out_fig,
     dpi=600, save = True
@@ -1762,9 +2330,104 @@ def plot_figureS7_from_csv(
         plt.show()
 
 # =============================================================================
-# Figure S8 — Generate CSV
+# Figure S9 — Generate CSV
 # =============================================================================
-def generate_figureS8_csv(
+def generate_figureS9_csv(
+    out_csv,dt =0.01,gbar =0.9,rbar =0.0,kbar =1.0,s =0.5,threshold =0.001, save = True
+):  
+    #time in logspace to compute the non-reset time
+    T_step = np.logspace(1,7,2500)
+    Nlist = [1000,5000,10000]
+
+    #time in linear space to see the effect of resetting
+    T = np.arange(10,100,0.01)
+
+    reset_time = np.zeros((len(Nlist),len(T)))
+    non_reset_time = np.zeros(len(Nlist))
+
+    for nn, N_val in enumerate(tqdm(Nlist)):
+        gamma = gbar*N_val**(-(rbar + 1))
+        kappa = kbar*N_val**(-s)  
+
+        #non-reset time
+        s_nr = np.real(core.surv_prob_theory_total_logspace(T_step, dt, N_val, gamma, kappa))
+        non_reset_time[nn] = core.find_transition_point(s_nr,T_step, dt,threshold)    
+
+        for tt,T_val in enumerate(T):
+            # Computing no-click probability at time T and then computing m according to the main text.
+            # See the section on "Impact of Resetting"
+            S_T = np.real(core.surv_prob_theory_T(T_val, N_val, gamma, kappa))
+ 
+            if S_T >=threshold:
+                m = np.round(np.log(threshold)/np.log(S_T))
+                reset_time[nn,tt] = m*T_val
+            else:
+                reset_time[nn,tt] = non_reset_time[nn]
+
+    # Last column: only 3 values, rest NaN
+    non_reset_col = np.full(T.shape, np.nan, dtype=float)
+    non_reset_col[:len(non_reset_time)] = non_reset_time 
+
+    # Data
+    data = np.column_stack([T, reset_time[0], reset_time[1], reset_time[2], non_reset_col])
+
+    # Header:
+    header = (
+        "Epoch Time T, "
+        "reset_time (N=1000), "
+        "reset_time (N=5000), "
+        "reset_time (N=10000), "
+        "non_reset_time (only first 3 rows)"
+    )
+
+ 
+    # Save / return
+    if save:
+        np.savetxt(out_csv, data, delimiter=",", header=header, comments="", fmt="%.16g")
+    else:
+        return data
+
+# =============================================================================
+# Figure S9 — Plot from CSV
+# =============================================================================
+def plot_figureS9_from_csv(
+    csv_path,
+    out_fig,
+    dpi=600, save = True
+):
+
+    df = pd.read_csv(csv_path, comment="#")
+    T = df.iloc[:, 0].values
+    reset_time_0 = df.iloc[:, 1].values  # N = 1000
+    reset_time_1 = df.iloc[:, 2].values  # N = 5000
+    reset_time_2 = df.iloc[:, 3].values  # N = 10000
+    non_reset_time = df.iloc[:, 4].values  
+
+    width_mm = 179.832/2
+    width_in = width_mm / 25.4
+    panel_aspect = 3/8   
+    panel_h = width_in * panel_aspect
+    fig, ax = plt.subplots(figsize=(width_in,panel_h),dpi=200)
+    style_axes(ax)
+
+    ax.plot(T,reset_time_0/non_reset_time[0],'-',label = r'$N = 1000$')
+    ax.plot(T,reset_time_1/non_reset_time[1],'--',label = r'$N = 5000$')
+    ax.plot(T,reset_time_2/non_reset_time[2],'-.',label = r'$N = 10000$')
+    ax.set_xlabel(r'$T$')
+    ax.set_ylabel(r'$\tau_R/\tau$')
+    ax.legend(frameon = False)
+    ax.axhline(1,color = 'k', ls ='--')
+
+    if save:
+        plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
+        plt.show()
+    else:
+        plt.show()
+
+# =============================================================================
+# Figure S10 — Generate CSV
+# =============================================================================
+def generate_figureS10_csv(
     out_csv,dt =0.001, r = 1.0, s = -1.0, threshold = 0.001, save = True
 ):
 
@@ -1825,9 +2488,9 @@ def generate_figureS8_csv(
 
 
 # =============================================================================
-# Figure S8 — Plot from CSV
+# Figure S10 — Plot from CSV
 # =============================================================================
-def plot_figureS8_from_csv(
+def plot_figureS10_from_csv(
     csv_path,
     out_fig,
     dpi=600, save = True
