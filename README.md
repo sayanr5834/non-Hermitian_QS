@@ -5,7 +5,7 @@
 This repository contains the data and code used to generate the data and figures for:
 
 > **Time complexity of a monitored quantum search with resetting**  
-> *Emma C. King, Sayan Roy, Francesco Mattiotti, Markus Bläser and Giovanna Morigi*  
+> *Emma C. King, Sayan Roy, Francesco Mattiotti, Maximilian Kiefer-Emmanouilidis, Markus Bläser and Giovanna Morigi*  
 
 ---
 
@@ -14,8 +14,8 @@ This repository contains the data and code used to generate the data and figures
 - `functions.py` — Core functions needed for simulations.
 - `build.py` — Main script containing functions for data generation and visualization.
 - `plotting.ipynb` — Demonstration notebook that loads pre-generated data and reproduces the paper’s figure using `build.py`.
-- `Data/` — CSV data for all figures (`Fig2.csv` … `FigS8.csv`).
-- `Figures/` — Final figure PDFs (`Fig2.pdf` … `FigS8.pdf`).
+- `Data/` — CSV data for all figures (`Figure2a.csv` … `FigureS10.csv`).
+- `Figures/` — Final figure PDFs (`Figure2a.pdf` … `FigureS10.pdf`).
 
 ---
 
