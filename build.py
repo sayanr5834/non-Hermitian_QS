@@ -72,162 +72,6 @@ def make_log_label_formatter(ticks_to_label):
 
 
 
-
-
-# =============================================================================
-# Figure 3a — Generate CSV
-# =============================================================================
-def generate_figure3a_csv(
-    out_csv, save = True
-):  
-
-    r_vals = np.linspace(-1.0, 1.0, 1201)
-    s_vals = np.linspace(-1.0, 1.0, 1201)
-
-    R, S = np.meshgrid(r_vals, s_vals)
-    Alpha = np.empty_like(R)
-    for i in range(R.shape[0]):
-        for j in range(R.shape[1]):
-            Alpha[i, j] = core.alpha_of_rs_scalar_reset(R[i, j], S[i, j])
-
-    
-    # Build data for CSV
-    x_flat = R.ravel(order='C')
-    y_flat = S.ravel(order ='C')
-    z_flat = Alpha.ravel(order = 'C')
-
-
-    data = np.column_stack([x_flat, y_flat,z_flat])
-
-    # Header row 
-    header = "rbar, s, alpha"
-
-    # Save CSV
-    if save:
-        np.savetxt(out_csv, data, delimiter=",", header=header, comments="", fmt="%.16g")
-    else:
-        return data
-
-
-
-# =============================================================================
-# Figure 3a — Plot from CSV
-# =============================================================================
-def plot_figure3a_from_csv(
-    csv_path,
-    out_fig,
-    dpi=600, save = True
-):
-
-    df = pd.read_csv(csv_path, comment="#")
-    x_flat = df.iloc[:, 0].values  # alpha list
-    y_flat = df.iloc[:, 1].values  # time
-    z_flat = df.iloc[:, 2].values  # S(t)
-
-    x_vals = np.unique(x_flat)   # unique rbar
-    y_vals = np.unique(y_flat)   # unique s
-
-    R, S = np.meshgrid(x_vals, y_vals)
-    Alpha = z_flat.reshape(len(y_vals), len(x_vals))
-
-    #PRL width and height
-    width_mm = 59.94 
-    width_in = width_mm / 25.4
-    panel_h = 2.1238582677165354
-    fig, ax = plt.subplots(figsize=(width_in,panel_h),dpi =200)
-    
-    style_axes(ax)
-    for sp in ax.spines.values():
-        sp.set_zorder(50)
-
-    # plotting the special critical star (chakra) at (0, 0.5)
-    chakra  = "#000088" 
-    ax.plot(0.0, 0.5, marker='*',color= chakra, markersize=8, zorder=8)
-    ax.text(-0.45, 0.47, r'$(0,\,\frac{1}{2})$', color=chakra, fontsize=8)
-
-    #labelling markers for Fig. 2b
-    label_positions = [
-
-        (-0.15, 0.75),   # A1
-        (-0.15,0.25),    #A2
-        (0.7,0.8),    # B 
-        (0.4, -0.5),# C
-        (-0.8, 0)     # D
-    ]
-
-    letters = ["A1", "A2", "B", "C", "D"]
-    for letter, (lr, ls) in zip(letters, label_positions):
-
-        label_text = f"({letter})" #+ a_val
-
-        # place text with a white box for readability
-        ax.text(lr, ls, label_text, fontsize=8, ha='left', va='center',
-            bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="0.8", alpha=0.85))
-
-    #contour plot
-    Alpha_sneg = np.ma.masked_where(S >= 0, Alpha)  # mask out s>=0
-    cp = ax.contourf(R, S, Alpha_sneg, levels=np.arange(0.0,1.01,0.01),cmap = indian_flag_cmap(with_chakra=False))
-    cbar = plt.colorbar(cp,ax=ax, orientation="vertical", fraction=0.08,shrink = 0.85)
-    
-    # line across the colorbar at alpha = 0.5
-    cbar.ax.axhline(0.5, color=chakra, lw=1.6)
-    ticks = [0,  0.25, 0.5, 0.75, 1.0]
-    cbar.set_ticks(ticks)
-    cbar.set_ticklabels([0,r'$\frac{1}{4}$', r'$\frac{1}{2}$',r'$\frac{3}{4}$',1])
-    cbar.ax.text(0.5,1.05, r'$\alpha$', transform=cbar.ax.transAxes,ha='center', va='center')
-
-    #plot the critical line at rbar = 0
-    s_crit = np.arange(0.0, 1.01,0.01)
-    r_crit = np.zeros(len(s_crit))
-
-
-    alpha = np.array([core.alpha_of_rs_scalar(0.0,s_crit[i]) for i in range(len(s_crit))])
-
-    # Create segments for LineCollection
-    points = np.array([r_crit, s_crit]).T.reshape(-1, 1, 2)
-    segments = np.concatenate([points[:-1], points[1:]], axis=1)
-
-    # Create the line collection
-    norm = Normalize(vmin=0.0, vmax=1)
-
-
-    lc = LineCollection(
-        segments,
-        cmap=indian_flag_cmap(),
-        norm=norm,
-        array=alpha,
-        linewidth=3
-    )
-
-    line = ax.add_collection(lc)
-
-    ax.contour(R, S, Alpha, levels=[0.5], colors=chakra, linewidths=1.6, linestyles='--')
-
-    ax.set_xlabel(r'$\bar{r}$',labelpad =1,size = 8 )
-    ax.set_ylabel(r'$s$',labelpad =-6,size = 8)
-
-    # draw thin axes guide lines separating different regions
-    ax.axhline(0.0,xmin = 0.5, ls=":", color="black", linewidth=1)
-    ax.axvline(0.0,ymin = 0.5, ls=":", color="black", linewidth=1)
-    ax.plot(x_vals[x_vals<0],y_vals[y_vals<0], ls=":", color="black", linewidth=1)
-
-
-    ax.text(-0.5, -0.4, r"$s=\bar{r}$", fontsize=8, color="k", rotation=45)
-
-    #plot the points for Fig.3b
-    ax.plot(0.0, -0.9, marker='s', color= 'white', markersize=6,markeredgecolor ='k', zorder=8)
-
-    plt.yticks(fontsize =8)
-    plt.xticks(fontsize =8)
-
-
-    if save:
-        plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
-        plt.show()
-    else:
-        plt.show()
-
-
 # =============================================================================
 # Figure 2a — Generate CSV
 # =============================================================================
@@ -587,6 +431,165 @@ def plot_figure2b_from_csv(
         plt.show()
     else:
         plt.show()
+
+
+
+
+
+
+# =============================================================================
+# Figure 3a — Generate CSV
+# =============================================================================
+def generate_figure3a_csv(
+    out_csv, save = True
+):  
+
+    r_vals = np.linspace(-1.0, 1.0, 1201)
+    s_vals = np.linspace(-1.0, 1.0, 1201)
+
+    R, S = np.meshgrid(r_vals, s_vals)
+    Alpha = np.empty_like(R)
+    for i in range(R.shape[0]):
+        for j in range(R.shape[1]):
+            Alpha[i, j] = core.alpha_of_rs_scalar_reset(R[i, j], S[i, j])
+
+    
+    # Build data for CSV
+    x_flat = R.ravel(order='C')
+    y_flat = S.ravel(order ='C')
+    z_flat = Alpha.ravel(order = 'C')
+
+
+    data = np.column_stack([x_flat, y_flat,z_flat])
+
+    # Header row 
+    header = "rbar, s, alpha"
+
+    # Save CSV
+    if save:
+        np.savetxt(out_csv, data, delimiter=",", header=header, comments="", fmt="%.16g")
+    else:
+        return data
+
+
+
+# =============================================================================
+# Figure 3a — Plot from CSV
+# =============================================================================
+def plot_figure3a_from_csv(
+    csv_path,
+    out_fig,
+    dpi=600, save = True
+):
+
+    df = pd.read_csv(csv_path, comment="#")
+    x_flat = df.iloc[:, 0].values  # alpha list
+    y_flat = df.iloc[:, 1].values  # time
+    z_flat = df.iloc[:, 2].values  # S(t)
+
+    x_vals = np.unique(x_flat)   # unique rbar
+    y_vals = np.unique(y_flat)   # unique s
+
+    R, S = np.meshgrid(x_vals, y_vals)
+    Alpha = z_flat.reshape(len(y_vals), len(x_vals))
+
+    #PRL width and height
+    width_mm = 59.94 
+    width_in = width_mm / 25.4
+    panel_h = 2.1238582677165354
+    fig, ax = plt.subplots(figsize=(width_in,panel_h),dpi =200)
+    
+    style_axes(ax)
+    for sp in ax.spines.values():
+        sp.set_zorder(50)
+
+    # plotting the special critical star (chakra) at (0, 0.5)
+    chakra  = "#000088" 
+    ax.plot(0.0, 0.5, marker='*',color= chakra, markersize=8, zorder=8)
+    ax.text(-0.45, 0.47, r'$(0,\,\frac{1}{2})$', color=chakra, fontsize=8)
+
+    #labelling markers for Fig. 2b
+    label_positions = [
+
+        (-0.15, 0.75),   # A1
+        (-0.15,0.25),    #A2
+        (0.7,0.8),    # B 
+        (0.4, -0.5),# C
+        (-0.8, 0)     # D
+    ]
+
+    letters = ["A1", "A2", "B", "C", "D"]
+    for letter, (lr, ls) in zip(letters, label_positions):
+
+        label_text = f"({letter})" #+ a_val
+
+        # place text with a white box for readability
+        ax.text(lr, ls, label_text, fontsize=8, ha='left', va='center',
+            bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="0.8", alpha=0.85))
+
+    #contour plot
+    Alpha_sneg = np.ma.masked_where(S >= 0, Alpha)  # mask out s>=0
+    cp = ax.contourf(R, S, Alpha_sneg, levels=np.arange(0.0,1.01,0.01),cmap = indian_flag_cmap(with_chakra=False))
+    cbar = plt.colorbar(cp,ax=ax, orientation="vertical", fraction=0.08,shrink = 0.85)
+    
+    # line across the colorbar at alpha = 0.5
+    cbar.ax.axhline(0.5, color=chakra, lw=1.6)
+    ticks = [0,  0.25, 0.5, 0.75, 1.0]
+    cbar.set_ticks(ticks)
+    cbar.set_ticklabels([0,r'$\frac{1}{4}$', r'$\frac{1}{2}$',r'$\frac{3}{4}$',1])
+    cbar.ax.text(0.5,1.05, r'$\alpha$', transform=cbar.ax.transAxes,ha='center', va='center')
+
+    #plot the critical line at rbar = 0
+    s_crit = np.arange(0.0, 1.01,0.01)
+    r_crit = np.zeros(len(s_crit))
+
+
+    alpha = np.array([core.alpha_of_rs_scalar(0.0,s_crit[i]) for i in range(len(s_crit))])
+
+    # Create segments for LineCollection
+    points = np.array([r_crit, s_crit]).T.reshape(-1, 1, 2)
+    segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+    # Create the line collection
+    norm = Normalize(vmin=0.0, vmax=1)
+
+
+    lc = LineCollection(
+        segments,
+        cmap=indian_flag_cmap(),
+        norm=norm,
+        array=alpha,
+        linewidth=3
+    )
+
+    line = ax.add_collection(lc)
+
+    ax.contour(R, S, Alpha, levels=[0.5], colors=chakra, linewidths=1.6, linestyles='--')
+
+    ax.set_xlabel(r'$\bar{r}$',labelpad =1,size = 8 )
+    ax.set_ylabel(r'$s$',labelpad =-6,size = 8)
+
+    # draw thin axes guide lines separating different regions
+    ax.axhline(0.0,xmin = 0.5, ls=":", color="black", linewidth=1)
+    ax.axvline(0.0,ymin = 0.5, ls=":", color="black", linewidth=1)
+    ax.plot(x_vals[x_vals<0],y_vals[y_vals<0], ls=":", color="black", linewidth=1)
+
+
+    ax.text(-0.5, -0.4, r"$s=\bar{r}$", fontsize=8, color="k", rotation=45)
+
+    #plot the points for Fig.3b
+    ax.plot(0.0, -0.9, marker='s', color= 'white', markersize=6,markeredgecolor ='k', zorder=8)
+
+    plt.yticks(fontsize =8)
+    plt.xticks(fontsize =8)
+
+
+    if save:
+        plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
+        plt.show()
+    else:
+        plt.show()
+
 
 
 
