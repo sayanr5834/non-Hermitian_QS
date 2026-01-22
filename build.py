@@ -143,7 +143,7 @@ def plot_figure2a_from_csv(
     #plot the points for Fig.2b
     ax.plot(-0.5, -0.5, marker='o', color= chakra, markersize=6,markeredgecolor ='k', zorder=8)
     ax.plot(-0.9, -1.0, marker='s', color='crimson', markersize=7,markeredgecolor ='k', zorder=8)
-    ax.plot(-0.45, -0.1, marker='d', color='gold', markersize=8,markeredgecolor ='k', zorder=8)
+    ax.plot(-0.45, -0.1, marker='d', color='goldenrod', markersize=8,markeredgecolor ='k', zorder=8)
     ax.plot(-0.7, -0.6, marker='v', color='violet', markersize=8,markeredgecolor ='k', zorder=8)
 
     #labelling markers for Fig. 2b
@@ -390,7 +390,7 @@ def plot_figure2b_from_csv(
 
     # plot theory curves faded after their corresponding Ni
     plot_line_faded_after(ax2, Nlist, y_th0, N1, color='crimson', ls='--', lw=1)
-    plot_line_faded_after(ax2, Nlist, y_th1, N2, color='gold',    ls='--', lw=1)
+    plot_line_faded_after(ax2, Nlist, y_th1, N2, color='goldenrod',    ls='--', lw=1)
     plot_line_faded_after(ax2, Nlist, y_th2, N3, color='violet',  ls='--', lw=1)
     plot_line_faded_after(ax2, Nlist, y_th3, N4, color=chakra,    ls='--', lw=1)
 
@@ -398,7 +398,7 @@ def plot_figure2b_from_csv(
     x6 = Nlist[::4]
 
     plot_faded_after(ax2, x6, results_0[::4], N1, 's', 'crimson', alpha_after=0.25)
-    plot_faded_after(ax2, x6, results_1[::4], N2, 'd', 'gold',    alpha_after=0.25)
+    plot_faded_after(ax2, x6, results_1[::4], N2, 'd', 'goldenrod',    alpha_after=0.25)
     plot_faded_after(ax2, x6, results_2[::4], N3, 'v', 'violet',  alpha_after=0.25)
     plot_faded_after(ax2, x6, results_3[::4], N4, 'o', chakra,    alpha_after=0.25)
 
@@ -423,7 +423,7 @@ def plot_figure2b_from_csv(
     ax2.text(14, 2, r"$N_1^*$", fontsize=7, color='crimson', rotation=0)
     ax2.text(1.2e2, 2, r"$N_2^*$", fontsize=7, color='violet', rotation=0)
     ax2.text(1.5e3, 2, r"$N_3^*$", fontsize=7, color=chakra, rotation=0)
-    ax2.text(3e4, 2, r"$N_4^*$", fontsize=7, color='gold', rotation=0)
+    ax2.text(3e4, 2, r"$N_4^*$", fontsize=7, color='goldenrod', rotation=0)
 
     if save:
         plt.savefig(out_fig, dpi=dpi, bbox_inches="tight")
@@ -686,7 +686,7 @@ def plot_figure3b_from_csv(
     #scaling as predicted from the theory (See table 1)
     chakra  = "#000088" 
     ax2.plot(Nlist,4*Nlist**(1.9) ,color = 'crimson',ls ='--',lw = 1)
-    ax2.plot(Nlist,6*Nlist**(0.1),color = 'violet',ls ='--',lw = 1)
+    ax2.plot(Nlist,6*Nlist**(0.1),color = 'orange',ls ='--',lw = 1)
 
     ax2.axvline(Nbar,color = 'k',ls ='--',lw = 1,alpha = 0.5)
 
@@ -697,8 +697,8 @@ def plot_figure3b_from_csv(
 
     #Plotting every 6 points for ease of visualization
     ax2.plot(Nlist[::6], (np.pi/2)*np.sqrt(Nlist[::6]),color = chakra,label = r"$\tau_{G}$")
-    ax2.plot(Nlist[::4], non_reset_time[::4],'s',markersize = 3,color = 'crimson',markeredgecolor ='k',markeredgewidth= 0.7,label = r"$\tau$" )
-    ax2.plot(Nlist[::4], reset_time[::4],'s',markersize = 3,color = 'violet',markeredgecolor ='k',markeredgewidth= 0.7, label = r"$\tau_R$")
+    ax2.plot(Nlist[::4], non_reset_time[::4],'s',markersize = 3,color = 'crimson',markeredgecolor ='k',markeredgewidth= 0.5,label = r"$\tau$" )
+    ax2.plot(Nlist[::4], reset_time[::4],'s',markersize = 3,color = 'orange',markeredgecolor ='k',markeredgewidth= 0.5, label = r"$\tau_R$")
 
 
     ax2.legend(
