@@ -1,6 +1,6 @@
 # Data & Code — *Time complexity of a monitored quantum search with resetting*
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18222781.svg)](https://doi.org/10.5281/zenodo.18222781)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18400732.svg)](https://doi.org/10.5281/zenodo.18400732)
 
 This repository contains the data and code used to generate the data and figures for:
 
@@ -52,7 +52,7 @@ jupyter notebook plotting.ipynb
 ### Data Availability
 
 All data and code are permanently archived on Zenodo:
-https://doi.org/10.5281/zenodo.18222781
+https://doi.org/10.5281/zenodo.18400732
 
 ### License
 - Code: MIT License (see `LICENSE`)
